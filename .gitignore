@@ -1,0 +1,7 @@
+*.exe
+*.dll
+*.pdf
+*.obj
+
+!FASM.EXE
+!FASMW.EXE
