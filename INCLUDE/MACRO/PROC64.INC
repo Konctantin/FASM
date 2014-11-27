@@ -461,7 +461,7 @@ macro initlocal@proc name,def
       current@initlocal = 4
       load dword@initlocal dword from name+position@initlocal
      else
-      load qword@initlocal dword from name+position@initlocal
+      load qword@initlocal qword from name+position@initlocal
       if ( qword@initlocal > 0 & qword@initlocal < 80000000h ) | ( qword@initlocal < 0 & qword@initlocal >= -80000000h )
        current@initlocal = 8
       else

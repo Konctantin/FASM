@@ -2,6 +2,7 @@
 *.dll
 *.pdf
 *.obj
+*.ini
 
 !FASM.EXE
 !FASMW.EXE

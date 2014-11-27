@@ -894,6 +894,10 @@ segment main use32
   ascii_table:
 	call	ascii_table_window
 	jc	main_loop
+	test	al,al
+	jz	main_loop
+	cmp	al,1Ah
+	je	main_loop
 	jmp	character
 
   moved_caret:
@@ -2889,6 +2893,7 @@ segment main use32
 	call	release_memory
 	pop	ecx
     line_buffer_reallocate:
+	mov	[line_buffer_size],ecx
 	call	get_memory
 	or	eax,eax
 	jz	memory_shortage

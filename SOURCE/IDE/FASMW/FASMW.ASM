@@ -3,7 +3,7 @@
 ; Copyright (c) 1999-2014, Tomasz Grysztar.
 ; All rights reserved.
 
-format PE large GUI 4.0
+format PE GUI 4.0 large NX
 entry start
 stack 20000h
 

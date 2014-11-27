@@ -2,6 +2,46 @@
 Visit http://flatassembler.net/ for more information.
 
 
+version 1.71.27 (Nov 18, 2014)
+
+[-] Corrected initial predictions of immediate size for "mov" and "test" instructions 
+    (this may sometimes help to generate smaller code).
+
+
+version 1.71.26 (Nov 12, 2014)
+
+[-] Fixed a bug introduced by previous version that allowed address values to 
+    bypass range checks.
+
+
+version 1.71.25 (Nov 03, 2014)
+
+[-] Fixed a bug that cause valued of argument starting with "<" character to be
+    incorrectly processed when the parameter in question was marked with "&"
+    character.
+
+
+version 1.71.24 (Oct 27, 2014)
+
+[+] In the definition of macroinstruction the last argument can now be followed by
+    "&" character to indicate that this argument can be filled with all the remaining
+    contents of line that called the macro. This feature cannot be combined with a
+    multi-value arguments.
+
+
+version 1.71.23 (Oct 21, 2014)
+
+[+] Added "bsf" and "bsr" operators to numerical expressions.
+
+[-] Removed the restriction that disallowed numerical constant to
+    forward-reference its own value.
+
+
+version 1.71.22 (Sep 28, 2014)
+
+[-] Format MZ no longer allows the table of relocations to overflow.
+
+
 version 1.71.21 (May 27, 2014)
 
 [-] Fixed a bug in the 64-bit floating points value converter.
