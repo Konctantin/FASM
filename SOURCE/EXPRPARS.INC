@@ -1,6 +1,6 @@
 
 ; flat assembler core
-; Copyright (c) 1999-2014, Tomasz Grysztar.
+; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 
 convert_expression:
@@ -129,7 +129,10 @@ convert_number:
 	pop	[current_offset]
 	lods	byte [esi]
 	cmp	al,')'
-	jne	invalid_expression
+	je	subexpression_closed
+	mov	al,'!'
+	stosb
+      subexpression_closed:
 	ret
       symbol_value:
 	cmp	[source_start],0

@@ -1,10 +1,11 @@
 
 ; flat assembler interface for Win32 IDE
-; Copyright (c) 1999-2014, Tomasz Grysztar.
+; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 
 flat_assembler:
 
+	mov	[initial_definitions],0
 	mov	edx,[esp+4]
 	mov	[input_file],edx
 	invoke	GetFullPathName,edx,1000h,path_buffer,param_buffer

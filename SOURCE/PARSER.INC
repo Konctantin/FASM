@@ -1,6 +1,6 @@
 
 ; flat assembler core
-; Copyright (c) 1999-2014, Tomasz Grysztar.
+; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 
 parser:
@@ -1258,7 +1258,7 @@ get_label_id:
 	inc	esi
 	cmp	byte [esi-1],'$'
 	je	get_org_origin_id
-	sub	esi,ecx
+	sub	esi,2
 	jmp	find_label
       get_current_offset_id:
 	xor	eax,eax
@@ -1363,12 +1363,12 @@ get_label_id:
 	cmp	al,30h
 	jb	name_first_char_ok
 	cmp	al,39h
-	jbe	invalid_name
+	jbe	numeric_name
       name_first_char_ok:
 	cmp	al,'$'
 	jne	check_for_reserved_word
-	cmp	ecx,1
-	jne	invalid_name
+      numeric_name:
+	add	esi,ecx
       reserved_word:
 	mov	eax,0Fh
 	pop	edi

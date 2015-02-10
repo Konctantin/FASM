@@ -43,7 +43,7 @@ struct OSVERSIONINFOW
 ends
 
 struct MEMORYSTATUS
-  dwiLength	  dd ?
+  dwLength	  dd ?
   dwMemoryLoad	  dd ?
   dwTotalPhys	  dd ?
   dwAvailPhys	  dd ?

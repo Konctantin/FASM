@@ -2,6 +2,41 @@
 Visit http://flatassembler.net/ for more information.
 ==
 
+version 1.71.33 (Jan 09, 2015)
+=
+[+] Default value for macroinstruction parameter can now be defined with ":"
+    character as an alternative to "=".
+
+
+version 1.71.32 (Jan 04, 2015)
+=
+[+] Brought back the "-d" switch for command line.
+
+
+version 1.71.31 (Dec 08, 2014)
+=
+[-] Removed dependence on size context for expression operators like NOT and XOR.
+
+[-] Relaxed range checking to allow extended negative range for all sizes.
+
+
+version 1.71.30 (Dec 07, 2014)
+=
+[-] Clearing the instruction data field when filling the addend for 64-bit ELF
+    relocaiton.
+
+
+version 1.71.29 (Dec 05, 2014)
+=
+[-] Supressed error message when parsing some malformed expressions that do not
+    get evaluated.
+
+
+version 1.71.28 (Dec 01, 2014)
+=
+[-] The addend field of relocation structure for 64-bit ELF format is now filled with
+    correct information.
+
 version 1.71.27 (Nov 18, 2014)
 =
 [-] Corrected initial predictions of immediate size for "mov" and "test" instructions 

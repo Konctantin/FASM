@@ -1,6 +1,6 @@
 
 ; flat assembler core
-; Copyright (c) 1999-2014, Tomasz Grysztar.
+; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 
 formatter:
@@ -3494,8 +3494,22 @@ elf_formatter:
 	shr	eax,8
 	stos	dword [edi]
 	xor	eax,eax
+	push	edx
+	mov	edx,[esi+4]
+	add	edx,[image_base]
+	xchg	eax,[edx]
 	stos	dword [edi]
+	cmp	byte [esi],1
+	je	addend_64bit
+	pop	edx
+	sar	eax,31
 	stos	dword [edi]
+	jmp	relocation_entry_ok
+      addend_64bit:
+	xor	eax,eax
+	xchg	eax,[edx+4]
+	stos	dword [edi]
+	pop	edx
       relocation_entry_ok:
 	add	esi,0Ch
 	jmp	convert_relocations

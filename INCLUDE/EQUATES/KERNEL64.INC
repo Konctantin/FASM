@@ -43,14 +43,14 @@ struct OSVERSIONINFOW
 ends
 
 struct MEMORYSTATUS
-  dwiLength	  dd ?
+  dwLength	  dd ?
   dwMemoryLoad	  dd ?
-  dwTotalPhys	  dd ?
-  dwAvailPhys	  dd ?
-  dwTotalPageFile dd ?
-  dwAvailPageFile dd ?
-  dwTotalVirtual  dd ?
-  dwAvailVirtual  dd ?
+  dwTotalPhys	  dq ?
+  dwAvailPhys	  dq ?
+  dwTotalPageFile dq ?
+  dwAvailPageFile dq ?
+  dwTotalVirtual  dq ?
+  dwAvailVirtual  dq ?
 ends
 
 struct STARTUPINFO
