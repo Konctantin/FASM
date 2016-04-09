@@ -1,6 +1,6 @@
 
 ; flat assembler core
-; Copyright (c) 1999-2014, Tomasz Grysztar.
+; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 
 invalid_parameter:
@@ -23,6 +23,9 @@ code_cannot_be_generated:
 	jmp	general_error
 format_limitations_exceeded:
 	mov	eax,FASM_FORMAT_LIMITATIONS_EXCEDDED
+	jmp	general_error
+invalid_definition:
+	mov	eax,FASM_INVALID_DEFINITION
 	jmp	general_error
 write_failed:
 	mov	eax,FASM_WRITE_FAILED

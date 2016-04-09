@@ -1,6 +1,6 @@
 
 ; flat assembler DLL interface for Win32
-; Copyright (c) 1999-2014, Tomasz Grysztar.
+; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 
 format PE DLL GUI 4.0
@@ -89,8 +89,11 @@ fasm_Assemble:
 	add	eax,edx
 	mov	[additional_memory_end],eax
 
-	mov	[first_write],0
-	mov	[second_write],0
+	xor	eax,eax
+	mov	[initial_definitions],eax
+
+	mov	[first_write],eax
+	mov	[second_write],eax
 
 	mov	eax,[hDisplayPipe]
 	mov	[display_pipe],eax
@@ -449,7 +452,7 @@ section '.rsrc' resource data readable
 
   versioninfo version,VOS__WINDOWS32,VFT_APP,VFT2_UNKNOWN,LANG_ENGLISH+SUBLANG_DEFAULT,0,\
 	      'FileDescription','flat assembler',\
-	      'LegalCopyright',<'Copyright ',0A9h,' 2001-2014 Tomasz Grysztar.'>,\
+	      'LegalCopyright',<'Copyright ',0A9h,' 2001-2015 Tomasz Grysztar.'>,\
 	      'FileVersion',VERSION_STRING,\
 	      'ProductVersion',VERSION_STRING,\
 	      'OriginalFilename','FASM.DLL'
