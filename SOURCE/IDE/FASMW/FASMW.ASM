@@ -1,6 +1,6 @@
 
 ; flat assembler IDE for Win32
-; Copyright (c) 1999-2015, Tomasz Grysztar.
+; Copyright (c) 1999-2016, Tomasz Grysztar.
 ; All rights reserved.
 
 format PE GUI 4.0 large NX
@@ -12,7 +12,7 @@ include 'fedit.ash'
 
 include '..\..\version.inc'
 
-IDE_VERSION_STRING equ "0.97.01"
+IDE_VERSION_STRING equ "0.98.03"
 
 struct EDITITEM
   header      TC_ITEMHEADER
@@ -20,15 +20,16 @@ struct EDITITEM
   pszpath     dd ?
 ends
 
-FM_NEW	       = WM_USER + 0
-FM_OPEN        = WM_USER + 1
-FM_SAVE        = WM_USER + 2
-FM_COMPILE     = WM_USER + 3
-FM_SELECT      = WM_USER + 4
-FM_ASSIGN      = WM_USER + 5
-FM_GETSELECTED = WM_USER + 6
-FM_GETASSIGNED = WM_USER + 7
-FM_GETHANDLE   = WM_USER + 8
+FM_NEW		= WM_USER + 0
+FM_OPEN 	= WM_USER + 1
+FM_SAVE 	= WM_USER + 2
+FM_COMPILE	= WM_USER + 3
+FM_SELECT	= WM_USER + 4
+FM_ASSIGN	= WM_USER + 5
+FM_GETSELECTED	= WM_USER + 6
+FM_GETASSIGNED	= WM_USER + 7
+FM_GETHANDLE	= WM_USER + 8
+FM_OPENREADONLY = WM_USER + 11h
 
 struct HH_AKLINK
   cbStruct     dd ?
@@ -62,6 +63,7 @@ section '.data' data readable writeable
   _loading_error db 'Could not load file %s.',0
   _run_object_error db 'Cannot execute object file.',0
   _saving_question db 'File was modified. Save it now?',0
+  _not_found db 'Text %s not found.',0
   _not_found_after db 'Text %s not found after current position.',0
   _not_found_before db 'Text %s not found before current position.',0
   _replace_prompt db 'Replace this occurence?',0
@@ -77,6 +79,7 @@ section '.data' data readable writeable
   _line_number db '%s [%d]',0
   _color db '%d,%d,%d',0
   _modified_status db 9,'Modified',0
+  _readonly_status db 9,'Read-only',0
   _pick_help db 'Pick help file',0
   _find db 'Find',0
   _replace db 'Replace',0
@@ -505,6 +508,8 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	je	fmnew
 	cmp	[wmsg],FM_OPEN
 	je	fmopen
+	cmp	[wmsg],FM_OPENREADONLY
+	je	fmopenreadonly
 	cmp	[wmsg],FM_SAVE
 	je	fmsave
 	cmp	[wmsg],FM_COMPILE
@@ -797,6 +802,8 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	mov	eax,ebx
 	jmp	finish
   fmopen:
+	and	[command_flags],0
+      allocate_path_buffer:
 	invoke	VirtualAlloc,0,1000h,MEM_COMMIT,PAGE_READWRITE
 	or	eax,eax
 	jz	failed
@@ -875,13 +882,22 @@ proc MainWindow hwnd,wmsg,wparam,lparam
       set_fedit_text:
 	invoke	SendMessage,[hwnd_fedit],WM_SETTEXT,0,dword [esp]
 	call	[VirtualFree]
-	mov	eax,ebx
-	jmp	finish
+	invoke	SendMessage,[hwnd_fedit],FEM_GETMODE,0,0
+	and	eax,not FEMODE_READONLY
+	test	[command_flags],1
+	jz	set_initial_mode
+	or	eax,FEMODE_READONLY
+      set_initial_mode:
+	invoke	SendMessage,[hwnd_fedit],FEM_SETMODE,eax,0
+	jmp	update_status_bar
       load_out_of_memory:
 	invoke	CloseHandle,ebx
       open_failed:
 	invoke	VirtualFree,[lparam],0,MEM_RELEASE
 	jmp	failed
+  fmopenreadonly:
+	or	[command_flags],1
+	jmp	allocate_path_buffer
   fmsave:
 	mov	[ei.header.mask],TCIF_PARAM
 	invoke	SendMessage,[hwnd_tabctrl],TCM_GETITEM,[wparam],ei
@@ -902,14 +918,15 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	mov	ebx,eax
 	invoke	SendMessage,[ei.hwnd],WM_GETTEXT,[wparam],[lparam]
 	invoke	WriteFile,ebx,[lparam],eax,param_buffer,0
+	test	eax,eax
+	jz	save_failed
 	invoke	CloseHandle,ebx
 	invoke	VirtualFree,[lparam],0,MEM_RELEASE
 	invoke	SendMessage,[ei.hwnd],FEM_MARKUNMODIFIED,0,0
+	xor	ebx,ebx
 	mov	eax,[ei.hwnd]
 	cmp	eax,[hwnd_fedit]
-	jne	save_status_ok
-	invoke	SendMessage,[hwnd_status],SB_SETTEXT,1,_null
-      save_status_ok:
+	je	update_status_bar
 	xor	eax,eax
 	jmp	finish
       save_failed:
@@ -1072,6 +1089,14 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	and	eax,MF_CHECKED
 	or	eax,MF_BYCOMMAND
 	invoke	CheckMenuItem,[wparam],IDM_VERTICAL,eax
+	test	ebx,FEMODE_READONLY
+	setnz	bl
+	and	ebx,MF_GRAYED
+	or	ebx,MF_BYCOMMAND
+	invoke	EnableMenuItem,[wparam],IDM_CUT,ebx
+	invoke	EnableMenuItem,[wparam],IDM_PASTE,ebx
+	invoke	EnableMenuItem,[wparam],IDM_DELETE,ebx
+	invoke	EnableMenuItem,[wparam],IDM_REPLACE,ebx
 	invoke	SendMessage,esi,FEM_CANFINDNEXT,0,0
 	or	eax,eax
 	setz	al
@@ -1130,6 +1155,7 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	jz	menu_command
 	cmp	ebx,[hwnd_fedit]
 	jne	finish
+	xor	ebx,ebx
 	shr	eax,16
 	cmp	eax,FEN_SETFOCUS
 	je	update_status_bar
@@ -1145,16 +1171,24 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	cinvoke wsprintf,string_buffer,_row_column,[fepos.caretLine],[fepos.caretPosition]
 	invoke	SendMessage,[hwnd_status],SB_SETTEXT,0,string_buffer
 	mov	esi,_null
+	invoke	SendMessage,[hwnd_fedit],FEM_GETMODE,0,0
+	test	eax,FEMODE_READONLY
+	jnz	readonly_status
 	invoke	SendMessage,[hwnd_fedit],FEM_ISUNMODIFIED,0,0
 	or	eax,eax
 	jnz	modified_status_ok
 	mov	esi,_modified_status
+	jmp	modified_status_ok
+      readonly_status:
+	mov	esi,_readonly_status
       modified_status_ok:
 	invoke	SendMessage,[hwnd_status],SB_SETTEXT,1,esi
+	mov	eax,ebx
 	jmp	finish
       not_enough_mem:
 	invoke	SendMessage,[hwnd_fedit],FEM_RELEASESEARCH,0,0
 	invoke	MessageBox,[hwnd],_memory_error,_caption,MB_ICONERROR+MB_OK
+	mov	eax,ebx
 	jmp	finish
   menu_command:
 	and	eax,0FFFFh
@@ -1195,6 +1229,8 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	je	select_all
 	cmp	eax,IDM_VERTICAL
 	je	vertical
+	cmp	eax,IDM_READONLY
+	je	read_only
 	cmp	eax,IDM_POSITION
 	je	position
 	cmp	eax,IDM_FIND
@@ -1256,12 +1292,17 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	mov	[ofn.lpstrFile],path_buffer
 	mov	[path_buffer],0
 	mov	[ofn.lpstrFilter],asm_filter
-	mov	[ofn.Flags],OFN_EXPLORER+OFN_ALLOWMULTISELECT+OFN_FILEMUSTEXIST+OFN_HIDEREADONLY
+	mov	[ofn.Flags],OFN_EXPLORER+OFN_ALLOWMULTISELECT+OFN_FILEMUSTEXIST
 	mov	[ofn.lpstrFileTitle],name_buffer
 	mov	[ofn.lpstrTitle],NULL
 	invoke	GetOpenFileName,ofn
 	or	eax,eax
 	jz	finish
+	mov	ebx,FM_OPEN
+	test	[ofn.Flags],OFN_READONLY
+	jz	open_chosen_files
+	mov	ebx,FM_OPENREADONLY
+      open_chosen_files:
 	test	[ofn.Flags],OFN_ALLOWMULTISELECT
 	jz	open_single_file
 	mov	esi,path_buffer
@@ -1269,7 +1310,7 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	add	esi,eax
 	mov	byte [esi-1],'\'
 	mov	edi,esi
-      open_chosen_files:
+      open_multiple_files:
 	cmp	byte [esi],0
 	je	finish
 	push	edi
@@ -1280,14 +1321,14 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	jnz	move_file_name
 	pop	edi
 	invoke	GetFileTitle,path_buffer,name_buffer,100h
-	invoke	SendMessage,[hwnd],FM_OPEN,name_buffer,path_buffer
+	invoke	SendMessage,[hwnd],ebx,name_buffer,path_buffer
 	cmp	eax,-1
-	jne	open_chosen_files
+	jne	open_multiple_files
 	invoke	wvsprintf,string_buffer,_loading_error,ofn.lpstrFile
 	invoke	MessageBox,[hwnd],string_buffer,_caption,MB_ICONERROR+MB_OK
-	jmp	open_chosen_files
+	jmp	open_multiple_files
       open_single_file:
-	invoke	SendMessage,[hwnd],FM_OPEN,name_buffer,path_buffer
+	invoke	SendMessage,[hwnd],ebx,name_buffer,path_buffer
 	cmp	eax,-1
 	jne	finish
 	invoke	wvsprintf,string_buffer,_loading_error,ofn.lpstrFile
@@ -1494,6 +1535,12 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	xor	eax,FEMODE_VERTICALSEL
 	invoke	SendMessage,ebx,FEM_SETMODE,eax,0
 	jmp	finish
+  read_only:
+	invoke	SendMessage,ebx,FEM_GETMODE,0,0
+	xor	eax,FEMODE_READONLY
+	invoke	SendMessage,ebx,FEM_SETMODE,eax,0
+	xor	ebx,ebx
+	jmp	update_status_bar
   position:
 	invoke	DialogBoxParam,[hinstance],IDD_POSITION,[hwnd],PositionDialog,0
 	jmp	finish
@@ -1508,6 +1555,9 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	mov	[param_buffer],1000h
 	invoke	SendMessage,[hwnd_fedit],FEM_GETSEARCHTEXT,search_string,param_buffer
 	invoke	SendMessage,[hwnd_fedit],FEM_GETSEARCHFLAGS,0,0
+	mov	esi,_not_found
+	test	eax,FEFIND_INWHOLETEXT
+	jnz	make_not_found_message
 	mov	esi,_not_found_after
 	test	eax,FEFIND_BACKWARD
 	jz	make_not_found_message
@@ -1739,11 +1789,29 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	invoke	SendMessage,[hwnd_tabctrl],TCM_SETCURSEL,ebx,0
 	invoke	SendMessage,[hwnd],FM_SELECT,ebx,0
 	cmp	ebx,[assigned_file]
-	sete	bl
-	neg	bl
-	and	ebx,MF_CHECKED
-	or	ebx,MF_BYCOMMAND
-	invoke	CheckMenuItem,[hmenu_tab],IDM_ASSIGN,ebx
+	sete	al
+	neg	al
+	and	eax,MF_CHECKED
+	or	eax,MF_BYCOMMAND
+	invoke	CheckMenuItem,[hmenu_tab],IDM_ASSIGN,eax
+	invoke	SendMessage,[hwnd_fedit],FEM_GETMODE,0,0
+	test	eax,FEMODE_READONLY
+	setnz	al
+	neg	al
+	and	eax,MF_CHECKED
+	or	eax,MF_BYCOMMAND
+	invoke	CheckMenuItem,[hmenu_tab],IDM_READONLY,eax
+	invoke	SendMessage,[hwnd_tabctrl],TCM_GETITEM,ebx,ei
+	invoke	SendMessage,[hwnd_fedit],FEM_ISUNMODIFIED,0,0
+	test	eax,eax
+	setz	al
+	cmp	[ei.pszpath],0
+	setz	ah
+	or	al,ah
+	neg	al
+	and	eax,MF_GRAYED
+	or	eax,MF_BYCOMMAND
+	invoke	EnableMenuItem,[hmenu_tab],IDM_READONLY,eax
 	invoke	TrackPopupMenu,[hmenu_tab],TPM_RIGHTBUTTON,[pt.x],[pt.y],0,[hwnd],0
 	jmp	finish
   wmdropfiles:
@@ -2254,6 +2322,10 @@ proc FindDialog hwnd_dlg,msg,wparam,lparam
 	test	[search_settings],FEFIND_BACKWARD
 	setnz	al
 	invoke	CheckDlgButton,[hwnd_dlg],ID_BACKWARD,eax
+	xor	eax,eax
+	test	[search_settings],FEFIND_INWHOLETEXT
+	setnz	al
+	invoke	CheckDlgButton,[hwnd_dlg],ID_INWHOLETEXT,eax
 	jmp	.update
   .command:
 	cmp	[wparam],ID_TEXT + CBN_EDITCHANGE shl 16
@@ -2272,7 +2344,7 @@ proc FindDialog hwnd_dlg,msg,wparam,lparam
   .casesensitive_ok:
 	invoke	IsDlgButtonChecked,[hwnd_dlg],ID_WHOLEWORDS
 	or	eax,eax
-	jz	 .wholewords_ok
+	jz	.wholewords_ok
 	or	ebx,FEFIND_WHOLEWORDS
   .wholewords_ok:
 	invoke	IsDlgButtonChecked,[hwnd_dlg],ID_BACKWARD
@@ -2280,6 +2352,11 @@ proc FindDialog hwnd_dlg,msg,wparam,lparam
 	jz	.backward_ok
 	or	ebx,FEFIND_BACKWARD
   .backward_ok:
+	invoke	IsDlgButtonChecked,[hwnd_dlg],ID_INWHOLETEXT
+	or	eax,eax
+	jz	.inwholetext_ok
+	or	ebx,FEFIND_INWHOLETEXT
+  .inwholetext_ok:
 	mov	[search_settings],ebx
 	stdcall AddStringToHistory,search_string
 	invoke	EndDialog,[hwnd_dlg],TRUE
@@ -3324,13 +3401,14 @@ section '.rsrc' resource data readable
   IDM_SELECTFILE     = 1110
   IDM_UNDO	     = 1201
   IDM_REDO	     = 1202
-  IDM_DISCARD_UNDO   = 1209
   IDM_CUT	     = 1203
   IDM_COPY	     = 1204
   IDM_PASTE	     = 1205
   IDM_DELETE	     = 1206
   IDM_SELECTALL      = 1207
   IDM_VERTICAL	     = 1208
+  IDM_DISCARD_UNDO   = 1209
+  IDM_READONLY	     = 1210
   IDM_POSITION	     = 1301
   IDM_FIND	     = 1302
   IDM_FINDNEXT	     = 1303
@@ -3359,8 +3437,9 @@ section '.rsrc' resource data readable
   ID_CASESENSITIVE = 2102
   ID_WHOLEWORDS    = 2103
   ID_BACKWARD	   = 2104
-  ID_PROMPT	   = 2105
-  ID_CONSOLECARET  = 2106
+  ID_INWHOLETEXT   = 2105
+  ID_PROMPT	   = 2106
+  ID_CONSOLECARET  = 2107
   ID_ROW	   = 2201
   ID_COLUMN	   = 2202
   ID_DISPLAY	   = 2203
@@ -3442,8 +3521,9 @@ section '.rsrc' resource data readable
 
   menu popup_menu
        menuitem '',0,MFR_POPUP+MFR_END
-		menuitem '&Assign to compiler',IDM_ASSIGN,0
-		menuitem 'Open &folder',IDM_OPENFOLDER,0
+		menuitem '&Assign to compiler',IDM_ASSIGN
+		menuitem 'Open &folder',IDM_OPENFOLDER
+		menuitem '&Read-only mode',IDM_READONLY
 		menuseparator
 		menuitem '&Close',IDM_CLOSE,MFR_END
 
@@ -3507,11 +3587,12 @@ section '.rsrc' resource data readable
     dialogitem 'BUTTON','&Case sensitive',ID_CASESENSITIVE,48,24,70,8,WS_VISIBLE+WS_TABSTOP+BS_AUTOCHECKBOX
     dialogitem 'BUTTON','&Whole words',ID_WHOLEWORDS,48,38,70,8,WS_VISIBLE+WS_TABSTOP+BS_AUTOCHECKBOX
     dialogitem 'BUTTON','&Backward',ID_BACKWARD,124,24,70,8,WS_VISIBLE+WS_TABSTOP+BS_AUTOCHECKBOX
+    dialogitem 'BUTTON','&In whole text',ID_INWHOLETEXT,124,38,70,8,WS_VISIBLE+WS_TABSTOP+BS_AUTOCHECKBOX
     dialogitem 'BUTTON','&Find first',IDOK,206,6,42,14,WS_VISIBLE+WS_TABSTOP+BS_DEFPUSHBUTTON
     dialogitem 'BUTTON','C&ancel',IDCANCEL,206,22,42,14,WS_VISIBLE+WS_TABSTOP+BS_PUSHBUTTON
   enddialog
 
-  dialog replace_dialog,'Replace',60,60,254,72,WS_CAPTION+WS_POPUP+WS_SYSMENU+DS_MODALFRAME
+  dialog replace_dialog,'Replace',60,60,254,86,WS_CAPTION+WS_POPUP+WS_SYSMENU+DS_MODALFRAME
     dialogitem 'STATIC','&Text to find:',-1,4,8,40,8,WS_VISIBLE+SS_RIGHT
     dialogitem 'COMBOBOX','',ID_TEXT,48,6,150,64,WS_VISIBLE+WS_BORDER+WS_TABSTOP+CBS_DROPDOWN+CBS_AUTOHSCROLL+WS_VSCROLL
     dialogitem 'STATIC','&New text:',-1,4,26,40,8,WS_VISIBLE+SS_RIGHT
@@ -3519,7 +3600,8 @@ section '.rsrc' resource data readable
     dialogitem 'BUTTON','&Case sensitive',ID_CASESENSITIVE,48,42,70,8,WS_VISIBLE+WS_TABSTOP+BS_AUTOCHECKBOX
     dialogitem 'BUTTON','&Whole words',ID_WHOLEWORDS,48,56,70,8,WS_VISIBLE+WS_TABSTOP+BS_AUTOCHECKBOX
     dialogitem 'BUTTON','&Backward',ID_BACKWARD,124,42,70,8,WS_VISIBLE+WS_TABSTOP+BS_AUTOCHECKBOX
-    dialogitem 'BUTTON','&Prompt on replace',ID_PROMPT,124,56,70,8,WS_VISIBLE+WS_TABSTOP+BS_AUTOCHECKBOX
+    dialogitem 'BUTTON','&In whole text',ID_INWHOLETEXT,124,56,70,8,WS_VISIBLE+WS_TABSTOP+BS_AUTOCHECKBOX
+    dialogitem 'BUTTON','&Prompt on replace',ID_PROMPT,48,70,70,8,WS_VISIBLE+WS_TABSTOP+BS_AUTOCHECKBOX
     dialogitem 'BUTTON','&Replace',IDOK,206,6,42,14,WS_VISIBLE+WS_TABSTOP+BS_DEFPUSHBUTTON
     dialogitem 'BUTTON','C&ancel',IDCANCEL,206,22,42,14,WS_VISIBLE+WS_TABSTOP+BS_PUSHBUTTON
   enddialog
@@ -3583,7 +3665,7 @@ section '.rsrc' resource data readable
   enddialog
 
   dialog about_dialog,'About',40,40,172,60,WS_CAPTION+WS_POPUP+WS_SYSMENU+DS_MODALFRAME
-    dialogitem 'STATIC',<'flat assembler ',2014h,' version ',VERSION_STRING,0Dh,0Ah,'Copyright ',0A9h,' 1999-2015 Tomasz Grysztar.'>,-1,27,10,144,40,WS_VISIBLE+SS_CENTER
+    dialogitem 'STATIC',<'flat assembler ',2014h,' version ',VERSION_STRING,0Dh,0Ah,'Copyright ',0A9h,' 1999-2016 Tomasz Grysztar.'>,-1,27,10,144,40,WS_VISIBLE+SS_CENTER
     dialogitem 'STATIC',IDI_MAIN,-1,8,8,32,32,WS_VISIBLE+SS_ICON
     dialogitem 'STATIC','',-1,4,34,164,11,WS_VISIBLE+SS_ETCHEDHORZ
     dialogitem 'STATIC',<'flat editor version ',FEDIT_VERSION_STRING>,-1,4,38,100,20,WS_VISIBLE+SS_LEFT
@@ -3597,7 +3679,7 @@ section '.rsrc' resource data readable
 
   versioninfo version,VOS__WINDOWS32,VFT_APP,VFT2_UNKNOWN,LANG_ENGLISH+SUBLANG_DEFAULT,0,\
 	      'FileDescription','flat assembler',\
-	      'LegalCopyright',<'Copyright ',0A9h,' 1999-2015 Tomasz Grysztar.'>,\
+	      'LegalCopyright',<'Copyright ',0A9h,' 1999-2016 Tomasz Grysztar.'>,\
 	      'FileVersion',IDE_VERSION_STRING,\
 	      'ProductVersion',VERSION_STRING,\
 	      'OriginalFilename','FASMW.EXE'

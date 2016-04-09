@@ -68,8 +68,8 @@ struct TBBUTTON
   idCommand dd ?
   fsState   db ?
   fsStyle   db ?,6 dup ?
-  dwData    dd ?
-  iString   dd ?
+  dwData    dq ?
+  iString   dq ?
 ends
 
 struct COLORMAP
@@ -132,7 +132,7 @@ struct TOOLINFO
   uFlags   dd ?
   hwnd	   dq ?
   uId	   dd ?
-  Rect	   RECT
+  rect	   RECT
 	   dd ?
   hInst    dq ?
   lpszText dq ?

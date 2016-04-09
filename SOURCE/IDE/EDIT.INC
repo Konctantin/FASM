@@ -1,6 +1,6 @@
 
 ; flat editor core
-; Copyright (c) 1999-2014, Tomasz Grysztar.
+; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 
 set_text:
@@ -61,7 +61,7 @@ put_character:
 	push	eax
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	mov	edi,eax
 	or	eax,1
 	xchg	eax,[esi]
@@ -126,7 +126,7 @@ put_character:
 	push	edx
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	pop	edx
 	mov	ebx,esi
 	mov	esi,eax
@@ -210,7 +210,7 @@ tabulate:
 	call	find_segment
 	cmp	edx,SEGMENT_DATA_LENGTH
 	jae	standard_tab
-	push	dword 0
+	push	0
     find_space:
 	lea	edi,[esi+SEGMENT_HEADER_LENGTH+edx]
 	mov	ecx,SEGMENT_DATA_LENGTH
@@ -303,7 +303,7 @@ break_line:
 	push	ebx
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	mov	edi,eax
 	mov	eax,[caret_line]
 	mov	[edi+4],eax
@@ -325,7 +325,7 @@ break_line:
 	push	edi ebx
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	mov	esi,eax
 	lea	edi,[esi+SEGMENT_HEADER_LENGTH]
 	mov	ecx,SEGMENT_DATA_LENGTH shr 2
@@ -361,7 +361,7 @@ break_line:
 	push	edx
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	pop	edx edi esi
 	mov	ebx,eax
 	or	eax,1
@@ -473,7 +473,7 @@ break_line:
 	call	store_segment_for_undo
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	mov	[esi],eax
 	mov	edi,eax
 	xchg	eax,[caret_line]
@@ -500,7 +500,7 @@ cut_line_break:
 	push	edx esi
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	pop	ebx edx
 	mov	esi,eax
 	mov	edi,eax
@@ -612,7 +612,7 @@ insert_into_line:
 	push	edx
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	pop	edx
 	mov	edi,eax
 	mov	esi,[ebx]
@@ -664,7 +664,7 @@ insert_into_line:
 	push	ecx edx
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	pop	edx ecx
 	mov	ebx,[edi]
 	btr	ebx,0
@@ -754,7 +754,7 @@ insert_into_line:
 	jecxz	attach_ok
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	mov	edi,eax
 	or	eax,1
 	xchg	eax,[ebx]
@@ -809,7 +809,7 @@ insert_into_line:
 	jc	overwrite_existing_segment
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	mov	edx,eax
 	or	edx,1
 	mov	[edi],edx
@@ -912,11 +912,8 @@ delete_from_line:
     remove_following_segments:
 	btr	esi,0
 	jnc	rest_of_line_cleared
-	call	store_segment_for_undo
-	or	eax,-1
-	xchg	eax,[esi]
-	mov	esi,eax
-	inc	[released_segments]
+	call	store_freed_segment_for_undo
+	mov	esi,[esi]
 	jmp	remove_following_segments
     rest_of_line_cleared:
 	mov	[ebx],esi
@@ -940,11 +937,8 @@ remove_line:
     cut_extra_segments:
 	btr	esi,0
 	jnc	replace_with_next_line
-	call	store_segment_for_undo
-	or	eax,-1
-	xchg	eax,[esi]
-	mov	esi,eax
-	inc	[released_segments]
+	call	store_freed_segment_for_undo
+	mov	esi,[esi]
 	jmp	cut_extra_segments
     replace_with_next_line:
 	or	esi,esi
@@ -954,9 +948,7 @@ remove_line:
 	xchg	esi,[caret_line]
 	mov	eax,[esi+4]
 	mov	[ebx+4],eax
-	call	store_segment_for_undo
-	or	dword [esi],-1
-	inc	[released_segments]
+	call	store_freed_segment_for_undo
 	call	cancel_line
 	mov	esi,[esi+4]
 	or	esi,esi
@@ -987,7 +979,7 @@ remove_line:
 duplicate_line:
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	mov	esi,[caret_line]
 	mov	edi,eax
 	mov	[edi+4],esi
@@ -1008,7 +1000,7 @@ duplicate_line:
 	mov	esi,eax
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	mov	edi,eax
 	or	eax,1
 	mov	[ebx],eax

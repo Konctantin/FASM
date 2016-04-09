@@ -1,6 +1,6 @@
 
 ; flat assembler interface for Unix/libc
-; Copyright (c) 1999-2015, Tomasz Grysztar.
+; Copyright (c) 1999-2016, Tomasz Grysztar.
 ; All rights reserved.
 
 	format	ELF
@@ -128,6 +128,8 @@ get_params:
 	mov	[symbols_file],0
 	mov	[memory_setting],0
 	mov	[passes_limit],100
+
+
 	mov	ecx,[argc]
 	mov	ebx,[argv]
 	add	ebx,4
@@ -299,7 +301,7 @@ include 'system.inc'
 
 include '..\version.inc'
 
-_copyright db 'Copyright (c) 1999-2015, Tomasz Grysztar',0xA,0
+_copyright db 'Copyright (c) 1999-2016, Tomasz Grysztar',0xA,0
 
 _logo db 'flat assembler  version ',VERSION_STRING,0
 _usage db 0xA

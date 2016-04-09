@@ -14,7 +14,7 @@ sizeof.TCHAR = 1
 
 include 'equates/kernel64.inc'
 include 'equates/user64.inc'
-include 'equates/gdi32.inc'
+include 'equates/gdi64.inc'
 include 'equates/comctl64.inc'
 include 'equates/comdlg64.inc'
 include 'equates/shell64.inc'

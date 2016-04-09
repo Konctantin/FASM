@@ -92,6 +92,10 @@ proc FlatEditor hwnd,wmsg,wparam,lparam
 	lea	edi,[editor_data]
 	mov	ecx,editor_data_size
 	rep	movsb
+	test	[editor_style],ES_READONLY
+	jz	editor_mode_ok
+	or	[editor_mode],FEMODE_READONLY
+    editor_mode_ok:
 	mov	[return_value],0
 	mov	[notification],0
 	mov	[redraw_now],0
@@ -866,6 +870,8 @@ wm_keydown:
 	mov	[selection_line],0
 	jmp	done
   del_key:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	test	[kbstate+VK_CONTROL],80h
 	jnz	wm_clear
 	test	[kbstate+VK_SHIFT],80h
@@ -902,6 +908,8 @@ wm_keydown:
 	call	finish_edit
 	jmp	text_altered
   backspace_key:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	test	[kbstate+VK_MENU],80h
 	jnz	undo_key
 	cmp	[was_selection],0
@@ -960,6 +968,8 @@ wm_keydown:
 	call	finish_edit
 	jmp	text_altered
   character:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	cmp	al,0Dh
 	je	enter_key
 	cmp	al,9
@@ -991,6 +1001,8 @@ wm_keydown:
 	call	finish_edit
 	jmp	text_altered
   tab_key:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	call	make_undopoint
 	cmp	[was_selection],0
 	je	tab_securesel
@@ -1002,6 +1014,8 @@ wm_keydown:
 	call	finish_edit
 	jmp	text_altered
   enter_key:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	call	make_undopoint
 	cmp	[was_selection],0
 	je	enter_secureselection_ok
@@ -1015,10 +1029,14 @@ wm_keydown:
 	call	finish_edit
 	jmp	text_altered
   ctrl_y_key:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	call	make_undopoint
 	call	remove_line
 	jmp	text_altered
   f6_key:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	call	make_undopoint
 	call	duplicate_line
 	jmp	text_altered
@@ -1190,10 +1208,14 @@ wm_copy:
 	invoke	GlobalFree,ebx
 	retn
 wm_cut:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	cmp	[was_selection],0
 	je	ignore
 	call	copy_to_clipboard
 wm_clear:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	cmp	[was_selection],0
 	je	ignore
 	call	make_undopoint
@@ -1201,6 +1223,8 @@ wm_clear:
 	mov	[selection_line],0
 	jmp	text_changed
 wm_paste:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	call	make_undopoint
 	cmp	[was_selection],0
 	je	paste_secureselection_ok
@@ -1435,6 +1459,8 @@ wm_getfont:
 	mov	[return_value],eax
 	jmp	ignore
 wm_undo:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	test	[editor_mode],FEMODE_NOUNDO
 	jnz	enable_undo
 	mov	eax,[undo_data]
@@ -1448,6 +1474,8 @@ wm_undo:
 	and	[editor_mode],not FEMODE_NOUNDO
 	jmp	ignore
 em_canundo:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	mov	eax,[undo_data]
 	or	eax,eax
 	jz	ignore
@@ -1457,6 +1485,8 @@ em_canundo:
 	test	[kbstate+VK_SHIFT],80h
 	jz	wm_undo
 fem_redo:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	cmp	[redo_data],0
 	je	ignore
 	call	redo_changes
@@ -1464,6 +1494,8 @@ fem_redo:
 	mov	[last_operation],0
 	jmp	text_changed
 fem_canredo:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	mov	eax,[redo_data]
 	or	eax,eax
 	jz	ignore
@@ -1484,7 +1516,7 @@ fem_setunmodified:
 	mov	[unmodified_state],eax
 	jmp	ignore
 em_replacesel:
-	test	[editor_mode],FEMODE_VERTICALSEL + FEMODE_OVERWRITE
+	test	[editor_mode],FEMODE_VERTICALSEL + FEMODE_OVERWRITE + FEMODE_READONLY
 	jnz	ignore
 	cmp	[undo_data],0
 	je	replacesel_undopoint
@@ -1686,10 +1718,14 @@ fem_getwordatcaret:
 	stosb
 	jmp	ignore
 fem_beginoperation:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	mov	[macro_operation],1
 	call	store_status_for_undo
 	jmp	done
 fem_endoperation:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
 	xor	al,al
 	xchg	al,[macro_operation]
 	test	al,2

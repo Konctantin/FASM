@@ -133,7 +133,7 @@ struct TOOLINFO
   uFlags   dd ?
   hwnd	   dd ?
   uId	   dd ?
-  Rect	   RECT
+  rect	   RECT
   hInst    dd ?
   lpszText dd ?
 ends

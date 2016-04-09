@@ -6,6 +6,9 @@ entry start
 
 include 'win32a.inc'
 
+IDR_ICON = 17
+IDR_MENU = 37
+
 IDM_NEW   = 101
 IDM_EXIT  = 102
 IDM_ABOUT = 901
@@ -16,7 +19,8 @@ section '.text' code readable executable
 
 	invoke	GetModuleHandle,0
 	mov	[wc.hInstance],eax
-	invoke	LoadIcon,eax,17
+
+	invoke	LoadIcon,eax,IDR_ICON
 	mov	[wc.hIcon],eax
 	invoke	LoadCursor,0,IDC_ARROW
 	mov	[wc.hCursor],eax
@@ -24,7 +28,7 @@ section '.text' code readable executable
 	test	eax,eax
 	jz	error
 
-	invoke	LoadMenu,[wc.hInstance],37
+	invoke	LoadMenu,[wc.hInstance],IDR_MENU
 	invoke	CreateWindowEx,0,_class,_title,WS_VISIBLE+WS_OVERLAPPEDWINDOW,144,128,256,256,NULL,eax,[wc.hInstance],NULL
 	test	eax,eax
 	jz	error
@@ -46,15 +50,16 @@ section '.text' code readable executable
 
 proc WindowProc hwnd,wmsg,wparam,lparam
 	push	ebx esi edi
-	cmp	[wmsg],WM_CREATE
+	mov	eax,[wmsg]
+	cmp	eax,WM_CREATE
 	je	.wmcreate
-	cmp	[wmsg],WM_SIZE
+	cmp	eax,WM_SIZE
 	je	.wmsize
-	cmp	[wmsg],WM_SETFOCUS
+	cmp	eax,WM_SETFOCUS
 	je	.wmsetfocus
-	cmp	[wmsg],WM_COMMAND
+	cmp	eax,WM_COMMAND
 	je	.wmcommand
-	cmp	[wmsg],WM_DESTROY
+	cmp	eax,WM_DESTROY
 	je	.wmdestroy
   .defwndproc:
 	invoke	DefWindowProc,[hwnd],[wmsg],[wparam],[lparam]
@@ -172,13 +177,13 @@ section '.rsrc' resource data readable
   ; resource subdirectories
 
   resource menus,\
-	   37,LANG_ENGLISH+SUBLANG_DEFAULT,main_menu
+	   IDR_MENU,LANG_ENGLISH+SUBLANG_DEFAULT,main_menu
 
   resource icons,\
 	   1,LANG_NEUTRAL,icon_data
 
   resource group_icons,\
-	   17,LANG_NEUTRAL,main_icon
+	   IDR_ICON,LANG_NEUTRAL,main_icon
 
   resource versions,\
 	   1,LANG_NEUTRAL,version

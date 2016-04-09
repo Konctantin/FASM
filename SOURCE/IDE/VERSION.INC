@@ -1,6 +1,6 @@
 
-; flat editor  version 3.11
-; Copyright (c) 1999-2014, Tomasz Grysztar.
+; flat editor  version 3.12
+; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 ;
 ; This programs is free for commercial and non-commercial use as long as
@@ -33,7 +33,7 @@
 ; cannot simply be copied and put under another distribution licence
 ; (including the GNU Public Licence).
 
-FEDIT_VERSION_STRING equ "3.11 beta 3"
+FEDIT_VERSION_STRING equ "3.12"
 
 FEDIT_VERSION_MAJOR = 3
-FEDIT_VERSION_MINOR = 11
+FEDIT_VERSION_MINOR = 12

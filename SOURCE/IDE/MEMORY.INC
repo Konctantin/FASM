@@ -1,6 +1,6 @@
 
 ; flat editor core
-; Copyright (c) 1999-2014, Tomasz Grysztar.
+; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 
 init_editor_memory:
@@ -78,6 +78,7 @@ reset_editor_memory:
 	xor	eax,eax
 	mov	[ebx],eax
 	mov	[undo_data],eax
+	mov	[redo_data],eax
 	mov	[search_data],eax
 	call	allocate_segment
 	jc	memory_shortage
@@ -156,7 +157,7 @@ allocate_segment:
 	or	eax,eax
 	jz	allocation_failed
 	mov	[esi],eax
-	mov	[eax],dword 0
+	mov	dword [eax],0
 	mov	[eax+4],esi
 	mov	[eax+8],ebx
 	lea	ebx,[eax+BLOCK_LENGTH]

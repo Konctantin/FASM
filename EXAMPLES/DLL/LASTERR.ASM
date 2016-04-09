@@ -7,6 +7,7 @@ include 'win32a.inc'
 section '.text' code readable executable
 
   start:
+	invoke	SetLastError,0
 	invoke	ShowLastError,HWND_DESKTOP
 	invoke	ExitProcess,0
 
@@ -16,6 +17,7 @@ section '.idata' import data readable writeable
 	  errormsg,'ERRORMSG.DLL'
 
   import kernel,\
+	 SetLastError,'SetLastError',\
 	 ExitProcess,'ExitProcess'
 
   import errormsg,\

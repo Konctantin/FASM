@@ -1,6 +1,6 @@
 
 ; flat assembler core
-; Copyright (c) 1999-2015, Tomasz Grysztar.
+; Copyright (c) 1999-2016, Tomasz Grysztar.
 ; All rights reserved.
 
 convert_expression:
@@ -77,7 +77,7 @@ convert_expression:
 	ret
 
 convert_number:
-	lea	eax,[edi-10h]
+	lea	eax,[edi+20h]
 	mov	edx,[memory_end]
 	cmp	[source_start],0
 	je	check_memory_for_number
@@ -130,6 +130,7 @@ convert_number:
 	lods	byte [esi]
 	cmp	al,')'
 	je	subexpression_closed
+	dec	esi
 	mov	al,'!'
 	stosb
       subexpression_closed:
@@ -150,16 +151,13 @@ convert_number:
 	shr	ah,4
 	cmp	ah,4
 	je	register_value
+	and	ah,not 1
 	cmp	ah,8
 	je	register_value
 	cmp	ah,0Ch
+	jae	register_value
+	cmp	ah,6
 	je	register_value
-	cmp	ah,0Dh
-	je	register_value
-	cmp	ah,0Fh
-	je	register_value
-	cmp	ah,2
-	jne	no_address_register
 	cmp	al,23h
 	je	register_value
 	cmp	al,25h
@@ -915,7 +913,7 @@ preevaluate_logical_expression:
 	je	preevaluate_or
 	cmp	dl,'&'
 	je	preevaluate_and
-	cmp	dl,'}'
+	cmp	dl,92h
 	je	preevaluation_done
 	or	dl,dl
 	jnz	invalid_logical_expression
@@ -990,7 +988,7 @@ preevaluate_logical_expression:
 	jmp	skip_logical_value
       negation_skipped:
 	mov	al,[esi]
-	cmp	al,'{'
+	cmp	al,91h
 	jne	skip_simple_logical_value
 	inc	esi
 	xchg	al,[logical_value_wrapping]
@@ -1006,7 +1004,7 @@ preevaluate_logical_expression:
 	je	skip_logical_expression
 	cmp	al,'&'
 	je	skip_logical_expression
-	cmp	al,'}'
+	cmp	al,92h
 	jne	wrongly_structured_logical_expression
 	pop	eax
 	mov	[logical_value_wrapping],al
@@ -1029,13 +1027,13 @@ preevaluate_logical_expression:
 	je	logical_value_skipped
 	cmp	al,'&'
 	je	logical_value_skipped
-	cmp	al,'{'
+	cmp	al,91h
 	je	skip_logical_value_internal_parenthesis
-	cmp	al,'}'
+	cmp	al,92h
 	jne	skip_logical_value_symbol
 	sub	[logical_value_parentheses],1
 	jnc	skip_logical_value_symbol
-	cmp	[logical_value_wrapping],'{'
+	cmp	[logical_value_wrapping],91h
 	jne	skip_logical_value_symbol
 	jmp	logical_value_skipped
       skip_logical_value_internal_parenthesis:
@@ -1052,7 +1050,7 @@ preevaluate_logical_expression:
 	jmp	preevaluate_negation
       preevaluate_negation_ok:
 	mov	ebx,esi
-	cmp	byte [esi],'{'
+	cmp	byte [esi],91h
 	jne	preevaluate_simple_logical_value
 	lods	byte [esi]
 	stos	byte [edi]
@@ -1065,7 +1063,7 @@ preevaluate_logical_expression:
 	pop	ebp
 	cmp	al,0FFh
 	je	invalid_logical_value
-	cmp	byte [esi],'}'
+	cmp	byte [esi],92h
 	jne	invalid_logical_value
 	or	al,al
 	jnz	preevaluated_expression_value
@@ -1092,9 +1090,9 @@ preevaluate_logical_expression:
 	mov	al,[esi]
 	or	al,al
 	jz	logical_value_boundaries_found
-	cmp	al,'{'
+	cmp	al,91h
 	je	logical_value_internal_parentheses
-	cmp	al,'}'
+	cmp	al,92h
 	je	logical_value_boundaries_parenthesis_close
 	cmp	al,'|'
 	je	logical_value_boundaries_found
@@ -1119,7 +1117,7 @@ preevaluate_logical_expression:
       logical_value_boundaries_parenthesis_close:
 	sub	[logical_value_parentheses],1
 	jnc	next_symbol_in_logical_value
-	cmp	[logical_value_wrapping],'{'
+	cmp	[logical_value_wrapping],91h
 	jne	next_symbol_in_logical_value
       logical_value_boundaries_found:
 	or	edx,edx

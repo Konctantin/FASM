@@ -1,6 +1,6 @@
 
 ; flat editor core
-; Copyright (c) 1999-2014, Tomasz Grysztar.
+; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 
 insert_block:
@@ -149,7 +149,7 @@ insert_block:
     insert_full_lines:
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	mov	[ebx],eax
 	mov	ebx,eax
 	mov	eax,[caret_line]
@@ -192,7 +192,7 @@ insert_block:
     extra_segment:
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	mov	edi,eax
 	or	eax,1
 	mov	[ebx],eax
@@ -284,20 +284,15 @@ delete_block:
     remove_middle_lines:
 	cmp	esi,[selection_line]
 	je	middle_lines_removed
-	call	store_segment_for_undo
-	or	ebx,-1
-	xchg	[esi],ebx
-	inc	[released_segments]
+	call	store_freed_segment_for_undo
+	mov	ebx,[esi]
 	call	cancel_line
 	mov	esi,ebx
 	btr	esi,0
 	jnc	remove_middle_lines
     remove_middle_line_segments:
-	call	store_segment_for_undo
-	or	eax,-1
-	xchg	[esi],eax
-	inc	[released_segments]
-	mov	esi,eax
+	call	store_freed_segment_for_undo
+	mov	esi,[esi]
 	btr	esi,0
 	jc	remove_middle_line_segments
 	jmp	remove_middle_lines

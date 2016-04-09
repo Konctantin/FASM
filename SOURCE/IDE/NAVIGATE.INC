@@ -1,6 +1,6 @@
 
 ; flat editor core
-; Copyright (c) 1999-2014, Tomasz Grysztar.
+; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 
 find_line:
@@ -19,7 +19,7 @@ find_line:
     find_forward:
 	cmp	ecx,eax
 	je	line_found
-	cmp	[esi],dword 0
+	cmp	dword [esi],0
 	je	line_found
 	mov	ebx,esi
     forward_skip_line:
@@ -37,7 +37,7 @@ find_line:
     find_backward:
 	cmp	ecx,eax
 	je	line_found
-	cmp	[esi+4],dword 0
+	cmp	dword [esi+4],0
 	je	line_found
 	mov	esi,[esi+4]
 	dec	ecx
@@ -83,14 +83,12 @@ check_line_length:
 	jnz	line_segments_ok
 	or	edx,edx
 	jz	line_segments_ok
-	call	store_segment_for_undo
-	or	eax,-1
-	xchg	eax,[esi]
+	call	store_freed_segment_for_undo
+	mov	eax,[esi]
 	mov	esi,[esi+4]
 	dec	esi
 	call	store_segment_for_undo
 	mov	[esi],eax
-	inc	[released_segments]
 	sub	edx,SEGMENT_DATA_LENGTH
 	jmp	last_line_segment
     line_segments_ok:
@@ -135,7 +133,7 @@ check_line_length:
 	push	eax ecx edi
 	call	allocate_segment
 	jc	memory_shortage
-	call	store_free_segment_for_undo
+	call	store_allocated_segment_for_undo
 	mov	[ebx],eax
 	mov	edi,eax
 	xor	eax,eax

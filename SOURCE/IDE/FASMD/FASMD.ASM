@@ -1,6 +1,6 @@
 
 ; flat assembler IDE for DOS/DPMI
-; Copyright (c) 1999-2015, Tomasz Grysztar.
+; Copyright (c) 1999-2016, Tomasz Grysztar.
 ; All rights reserved.
 
 	format	MZ
@@ -180,6 +180,8 @@ init:
 segment main use32
 
   start:
+	cld
+
 	call	init_video
 	jc	startup_failed
 
@@ -1121,9 +1123,30 @@ segment main use32
 	jb	replacing_finished
 	ja	replace_next
       do_replace:
+	push	[caret_line_number]
+	push	[caret_position]
 	call	delete_block
+	pop	edx ecx
+	cmp	ecx,[caret_line_number]
+	jne	simple_replace
+	cmp	edx,[caret_position]
+	jne	simple_replace
 	mov	esi,[esp]
 	call	insert_block
+	mov	esi,[caret_line]
+	mov	ecx,[caret_line_number]
+	mov	edx,[caret_position]
+	xchg	esi,[selection_line]
+	xchg	ecx,[selection_line_number]
+	xchg	edx,[selection_position]
+	mov	[caret_line],esi
+	mov	[caret_line_number],ecx
+	mov	[caret_position],edx
+	jmp	replace_done
+      simple_replace:
+	mov	esi,[esp]
+	call	insert_block
+      replace_done:
 	inc	[replaces_count]
       replace_next:
 	call	find_next
@@ -5137,8 +5160,8 @@ segment main use32
   find_dialog:
 	push	[find_flags]
 	mov	esi,_find
-	mov	dx,060Dh
-	mov	cx,0936h
+	mov	dx,050Dh
+	mov	cx,0A36h
 	mov	ah,[window_colors]
 	call	draw_window
 	push	edx
@@ -5168,7 +5191,7 @@ segment main use32
 	mov	edi,find_flags
 	mov	ebp,FEFIND_CASESENSITIVE
 	add	dx,0310h
-	mov	cl,10h
+	mov	cl,18h
 	xor	al,al
 	call	create_check_box
 	call	register_box_in_dialog
@@ -5178,17 +5201,27 @@ segment main use32
 	mov	edi,find_flags
 	mov	ebp,FEFIND_WHOLEWORDS
 	add	dx,0410h
-	mov	cl,10h
+	mov	cl,18h
 	xor	al,al
 	call	create_check_box
 	call	register_box_in_dialog
-	pop	edx
+	mov	dx,[esp]
 	mov	ebx,buffer+820h
 	mov	esi,_backward
 	mov	edi,find_flags
 	mov	ebp,FEFIND_BACKWARD
 	add	dx,0510h
-	mov	cl,10h
+	mov	cl,18h
+	xor	al,al
+	call	create_check_box
+	call	register_box_in_dialog
+	pop	edx
+	mov	ebx,buffer+830h
+	mov	esi,_search_in_whole_text
+	mov	edi,find_flags
+	mov	ebp,FEFIND_INWHOLETEXT
+	add	dx,0610h
+	mov	cl,18h
 	xor	al,al
 	call	create_check_box
 	call	register_box_in_dialog
@@ -5206,8 +5239,8 @@ segment main use32
   replace_dialog:
 	push	[find_flags]
 	mov	esi,_replace
-	mov	dx,060Dh
-	mov	cx,0C36h
+	mov	dx,050Dh
+	mov	cx,0D36h
 	mov	ah,[window_colors]
 	call	draw_window
 	push	edx
@@ -5277,12 +5310,22 @@ segment main use32
 	xor	al,al
 	call	create_check_box
 	call	register_box_in_dialog
-	pop	edx
+	mov	dx,[esp]
 	mov	ebx,buffer+830h
+	mov	esi,_replace_in_whole_text
+	mov	edi,find_flags
+	mov	ebp,FEFIND_INWHOLETEXT
+	add	dx,0810h
+	mov	cl,18h
+	xor	al,al
+	call	create_check_box
+	call	register_box_in_dialog
+	pop	edx
+	mov	ebx,buffer+840h
 	mov	esi,_prompt
 	mov	edi,command_flags
 	mov	ebp,1
-	add	dx,0810h
+	add	dx,0910h
 	mov	cl,18h
 	xor	al,al
 	call	create_check_box
@@ -6380,7 +6423,7 @@ segment main use32
 ; String constants
 
   _caption db 'flat assembler ',VERSION_STRING,0
-  _copyright db 'Copyright (c) 1999-2015, Tomasz Grysztar',0
+  _copyright db 'Copyright (c) 1999-2016, Tomasz Grysztar',0
 
   _null db 0
   _untitled db 'Untitled',0
@@ -6405,6 +6448,8 @@ segment main use32
   _case_sensitive db 'Case sensitive',0
   _whole_words db 'Whole words',0
   _backward db 'Backward search',0
+  _search_in_whole_text db 'Search in whole text',0
+  _replace_in_whole_text db 'Replace in whole text',0
   _prompt db 'Prompt on replace',0
   _options db 'Editor options',0
   _secure_selection db 'Secure selection',0
@@ -6511,6 +6556,7 @@ segment main use32
   FEFIND_CASESENSITIVE = 1
   FEFIND_WHOLEWORDS    = 2
   FEFIND_BACKWARD      = 4
+  FEFIND_INWHOLETEXT   = 8
 
   FES_AUTOINDENT   = 0001h
   FES_AUTOBRACKETS = 0002h

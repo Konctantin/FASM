@@ -1,6 +1,6 @@
 
 ; flat assembler core
-; Copyright (c) 1999-2015, Tomasz Grysztar.
+; Copyright (c) 1999-2016, Tomasz Grysztar.
 ; All rights reserved.
 
 preprocessor:
@@ -42,6 +42,7 @@ preprocessor:
 	mov	[hash_tree],eax
 	mov	[error],eax
 	mov	[macro_status],al
+	mov	[current_line],eax
 	mov	esi,[initial_definitions]
 	test	esi,esi
 	jz	predefinitions_ok
@@ -221,7 +222,11 @@ preprocessor:
 	mov	[ebx],eax
 	call	use_postponed_macro
 	pop	edx
-	jmp	process_postponed_list
+	cmp	[macro_status],0
+	je	process_postponed_list
+	mov	eax,[error_line]
+	mov	[current_line],eax
+	jmp	incomplete_macro
       preprocessing_finished:
 	mov	[source_start],edi
 	ret
@@ -418,6 +423,7 @@ convert_line:
 	jne	backslashed_symbol
 	stos	byte [edi]
 	inc	byte [ecx]
+	jz	name_too_long
 	jmp	group_backslashes
       no_end_quote:
 	mov	byte [ebx-5],0
@@ -1208,6 +1214,7 @@ postpone_directive:
 	xor	ecx,ecx
 	call	add_preprocessor_symbol
 	mov	eax,[current_line]
+	mov	[error_line],eax
 	mov	[edx+12],eax
 	pop	esi
 	mov	[edx+8],esi
@@ -1215,8 +1222,6 @@ postpone_directive:
 	and	al,0F0h
 	or	al,1
 	mov	[macro_status],al
-	mov	eax,[current_line]
-	mov	[error_line],eax
 	lods	byte [esi]
 	or	al,al
 	jz	line_preprocessed
@@ -1930,6 +1935,8 @@ do_irp:
 	xor	ebp,ebp
 	or	[skip_default_argument_value],-1
 	call	skip_macro_argument_value
+	cmp	byte [esi],','
+	jne	invalid_macro_arguments
 	inc	esi
 	jmp	irp_parameters_start
       irps_name_ok:

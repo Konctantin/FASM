@@ -1,6 +1,6 @@
 
 ; flat assembler interface for DOS
-; Copyright (c) 1999-2015, Tomasz Grysztar.
+; Copyright (c) 1999-2016, Tomasz Grysztar.
 ; All rights reserved.
 
 go32:
@@ -439,8 +439,10 @@ fatal_error:
 	jmp	exit_program
 assembler_error:
 	call	display_user_messages
-	push	dword 0
 	mov	ebx,[current_line]
+	test	ebx,ebx
+	jz	display_error_message
+	pushd	0
       get_error_lines:
 	mov	eax,[ebx]
 	cmp	byte [eax],0
@@ -544,6 +546,7 @@ assembler_error:
 	pop	ebx
 	or	ebx,ebx
 	jnz	display_error_line
+      display_error_message:
 	mov	esi,error_prefix
 	call	display_string
 	pop	esi

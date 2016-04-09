@@ -1,6 +1,6 @@
 
 ; flat assembler interface for Win32 IDE
-; Copyright (c) 1999-2015, Tomasz Grysztar.
+; Copyright (c) 1999-2016, Tomasz Grysztar.
 ; All rights reserved.
 
 flat_assembler:
@@ -209,6 +209,7 @@ fatal_error:
 	cmp	[hthread],0
 	je	error_outside_compiler
 	pop	[error_message]
+      error_with_no_source:
 	mov	al,0FFh
 	jmp	exit_program
 assembler_error:
@@ -217,6 +218,8 @@ assembler_error:
 	call	show_display_buffer
 	pop	[error_message]
 	mov	ebx,[current_line]
+	test	ebx,ebx
+	jz	error_with_no_source
 	xor	ecx,ecx
       get_error_lines:
 	mov	eax,[ebx]

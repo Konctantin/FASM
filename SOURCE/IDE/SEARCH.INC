@@ -1,6 +1,6 @@
 
 ; flat editor core
-; Copyright (c) 1999-2014, Tomasz Grysztar.
+; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 
 find_first:
@@ -134,6 +134,14 @@ find_next:
 	push	[selection_position]
 	test	[search_flags],FEFIND_BACKWARD
 	jnz	search_backward
+	test	[search_flags],FEFIND_INWHOLETEXT
+	jz	search_for_text
+	mov	eax,[first_line]
+	mov	[caret_line],eax
+	xor	eax,eax
+	mov	[caret_position],eax
+	inc	eax
+	mov	[caret_line_number],eax
     search_for_text:
 	mov	ecx,[edi]
 	dec	ecx
@@ -297,6 +305,7 @@ find_next:
 	mov	ecx,[caret_line_number]
 	mov	[selection_line],eax
 	mov	[selection_line_number],ecx
+	and	[search_flags],not FEFIND_INWHOLETEXT
 	add	esp,16
 	clc
 	retn
@@ -309,13 +318,20 @@ find_next:
 	stc
 	retn
     search_backward:
+	test	[search_flags],FEFIND_INWHOLETEXT
+	jz	backward_search_for_text
+	or	eax,-1
+	call	find_line
+	mov	[caret_line],esi
+	mov	[caret_line_number],ecx
+	call	move_to_line_end
+    backward_search_for_text:
 	mov	ecx,[caret_position]
 	sub	ecx,1
 	jc	backward_text_not_in_this_line
 	mov	[caret_position],ecx
 	mov	edi,[search_data]
 	mov	eax,[edi]
-	add	ecx,eax
 	mov	al,[edi+(256+eax)*4]
 	cmp	al,20h
 	jne	backward_search_starting_position_ok
@@ -337,10 +353,10 @@ find_next:
 	mov	ebx,upper_case_table
 	cmp	edx,SEGMENT_DATA_LENGTH
 	jb	backward_search_in_line
-	mov	eax,SEGMENT_DATA_LENGTH-1
-	sub	edx,eax
-	sub	[caret_position],edx
-	mov	edx,eax
+	mov	ecx,edx
+	sub	ecx,SEGMENT_DATA_LENGTH-1
+	sub	edx,ecx
+	sub	[caret_position],ecx
     backward_search_in_line:
 	mov	al,[esi+SEGMENT_HEADER_LENGTH+edx]
 	test	[search_flags],FEFIND_CASESENSITIVE
@@ -410,7 +426,7 @@ find_next:
 	dec	[caret_line_number]
 	mov	ecx,[peak_line_length]
 	mov	[caret_position],ecx
-	jmp	search_backward
+	jmp	backward_search_for_text
     backward_text_found:
 	test	[search_flags],FEFIND_WHOLEWORDS
 	jz	backward_left_text_edge_ok
@@ -456,7 +472,7 @@ find_next:
 	mov	eax,[edi+(256+ecx-1)*4]
 	sub	[caret_position],eax
 	jbe	backward_text_not_in_this_line
-	jmp	search_backward
+	jmp	backward_search_for_text
     backward_right_text_edge_ok:
 	mov	eax,[caret_position]
 	xchg	eax,[selection_position]
@@ -465,6 +481,7 @@ find_next:
 	mov	ecx,[caret_line_number]
 	mov	[selection_line],eax
 	mov	[selection_line_number],ecx
+	and	[search_flags],not FEFIND_INWHOLETEXT
 	add	esp,16
 	clc
 	retn

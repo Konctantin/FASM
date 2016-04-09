@@ -128,7 +128,7 @@ ends
 struct NMHDR
   hwndFrom dq ?
   idFrom   dq ?
-  code	   dd ?
+  code	   dd ?,?
 ends
 
 struct COPYDATASTRUCT
@@ -193,7 +193,7 @@ struct MEASUREITEMSTRUCT
   itemID     dd ?
   itemWidth  dd ?
   itemHeight dd ?
-  itemData   dd ?
+  itemData   dq ?
 ends
 
 struct MSGBOXPARAMS

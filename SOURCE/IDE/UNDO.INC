@@ -1,6 +1,6 @@
 
 ; flat editor core
-; Copyright (c) 1999-2014, Tomasz Grysztar.
+; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 
 store_status_for_undo:
@@ -10,7 +10,7 @@ store_status_for_undo:
 	call	clear_redo_data
 	call	allocate_segment
 	jc	not_enough_memory
-	mov	[eax],dword 0
+	mov	dword [eax],0
 	mov	edi,eax
 	xchg	eax,[undo_data]
 	push	eax edi
@@ -21,8 +21,8 @@ store_status_for_undo:
 	stosd
 	jmp	not_enough_memory
     store_editor_status:
-	mov	[eax],dword 0
-	mov	[eax+4],dword 0
+	mov	dword [eax],0
+	mov	dword [eax+4],0
 	stosd
 	pop	eax
 	stosd
@@ -102,10 +102,10 @@ store_segment_for_undo:
 	clc
 	retn
 
-store_free_segment_for_undo:
+store_allocated_segment_for_undo:
 	pusha
 	call	clear_redo_data
-	mov	eax,[esp+28]
+	mov	eax,[esp+1Ch]
 	xor	edx,edx
 	mov	[eax],edx
 	mov	esi,[undo_data]
@@ -116,6 +116,21 @@ store_free_segment_for_undo:
 	xor	eax,eax
 	stosd
 	mov	eax,[esp+1Ch]
+	stosd
+	popa
+	retn
+
+store_freed_segment_for_undo:
+	pusha
+	call	clear_redo_data
+	mov	esi,[undo_data]
+	or	esi,esi
+	jz	segment_for_undo_done
+	call	prepare_slot_for_undo_storage
+	jc	segment_for_undo_done
+	mov	eax,[esp+4]
+	stosd
+	xor	eax,eax
 	stosd
 	popa
 	retn
@@ -247,7 +262,7 @@ clear_redo_data:
 	or	edi,edi
 	jz	release_next_segment
 	or	eax,-1
-	test	esi,esi
+	or	esi,esi
 	jnz	release_data
 	xchg	eax,[edi]
 	jmp	data_released
