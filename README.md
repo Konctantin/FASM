@@ -1,36 +1,109 @@
 
 Visit http://flatassembler.net/ for more information.
 ==
+version 1.71.51 (Feb 08, 2016)
+=
+[-] Corrected the signalling of "operand size not specified" error with
+    AVX instructions.
+
+version 1.71.50 (Jan 30, 2016)
+=
+[-] Overflow error in the RIP-relative addresses has been made recoverable.
+
+version 1.71.49 (Dec 06, 2015)
+=
+[-] Few small fixes.
+
+version 1.71.48 (Nov 18, 2015)
+=
+[-] Fixed recently introduced bug in MOV instruction with debug register
+    as target.
+
+version 1.71.47 (Nov 09, 2015)
+=
+[+] Added support for Intel MPX instructions.
+
+version 1.71.46 (Oct 31, 2015)
+=
+[-] Another minor bug fixed.
+
+version 1.71.45 (Oct 31, 2015)
+=
+[-] Few more bugs fixed in AVX encodings.
+
+version 1.71.44 (Oct 27, 2015)
+=
+[-] Minor bug fixes.
+
+version 1.71.43 (Oct 26, 2015)
+=
+[+] Added two missing instructions.
+[-] Fixed few minor bugs in AVX-512 encodings.
+
+version 1.71.42 (Oct 22, 2015)
+=
+[-] Fixed a couple of regression bugs.
+
+version 1.71.41 (Oct 21, 2015)
+=
+[-] Fixed a bug that caused the "word" operator inside square brackets to
+    have no effect.
+
+version 1.71.40 (Oct 19, 2015)
+=
+[+] Added support for Intel AVX-512, SHA, CLFLUSHOPT, CLWB and
+    PCOMMIT instruction sets.
+
+version 1.71.39 (Mar 11, 2015)
+=
+[-] Minor bug fix.
+
+version 1.71.38 (Mar 09, 2015)
+=
+[-] Minor bug fixes.
+
+version 1.71.37 (Mar 03, 2015)
+=
+[-] Fixed a crash caused by incorrect handling of any error in definition
+    provided through "-d" switch.
+
+version 1.71.36 (Feb 26, 2015)
+=
+[-] Fixed a small bug with "irp" directive.
+
+version 1.71.35 (Feb 25, 2015)
+=
+[-] Corrected a flaw that caused a crash when processing incomplete macro
+    definitions within the "postpone" block.
+
+version 1.71.34 (Feb 17, 2015)
+=
+[-] Fixed a recently introduced bug that caused assembler to hang when a
+    missing closing parenthesis error was encountered.
 
 version 1.71.33 (Jan 09, 2015)
 =
 [+] Default value for macroinstruction parameter can now be defined with ":"
     character as an alternative to "=".
 
-
 version 1.71.32 (Jan 04, 2015)
 =
 [+] Brought back the "-d" switch for command line.
 
-
 version 1.71.31 (Dec 08, 2014)
 =
 [-] Removed dependence on size context for expression operators like NOT and XOR.
-
 [-] Relaxed range checking to allow extended negative range for all sizes.
-
 
 version 1.71.30 (Dec 07, 2014)
 =
 [-] Clearing the instruction data field when filling the addend for 64-bit ELF
     relocaiton.
 
-
 version 1.71.29 (Dec 05, 2014)
 =
 [-] Supressed error message when parsing some malformed expressions that do not
     get evaluated.
-
 
 version 1.71.28 (Dec 01, 2014)
 =
@@ -42,19 +115,16 @@ version 1.71.27 (Nov 18, 2014)
 [-] Corrected initial predictions of immediate size for "mov" and "test" instructions 
     (this may sometimes help to generate smaller code).
 
-
 version 1.71.26 (Nov 12, 2014)
 =
 [-] Fixed a bug introduced by previous version that allowed address values to 
     bypass range checks.
-
 
 version 1.71.25 (Nov 03, 2014)
 =
 [-] Fixed a bug that cause valued of argument starting with "<" character to be
     incorrectly processed when the parameter in question was marked with "&"
     character.
-
 
 version 1.71.24 (Oct 27, 2014)
 =
@@ -63,7 +133,6 @@ version 1.71.24 (Oct 27, 2014)
     contents of line that called the macro. This feature cannot be combined with a
     multi-value arguments.
 
-
 version 1.71.23 (Oct 21, 2014)
 =
 [+] Added "bsf" and "bsr" operators to numerical expressions.
@@ -71,58 +140,47 @@ version 1.71.23 (Oct 21, 2014)
 [-] Removed the restriction that disallowed numerical constant to
     forward-reference its own value.
 
-
 version 1.71.22 (Sep 28, 2014)
 =
 [-] Format MZ no longer allows the table of relocations to overflow.
-
 
 version 1.71.21 (May 27, 2014)
 =
 [-] Fixed a bug in the 64-bit floating points value converter.
 
-
 version 1.71.20 (Feb 27, 2014)
 =
 [-] Fixed a bug in the backward patching of PE fixups.
-
 
 version 1.71.19 (Feb 09, 2014)
 =
 [-] Corrected some of the range errors in intermediate passes to be correctly
     resolvable.
 
-
 version 1.71.18 (Feb 02, 2014)
 =
 [+] Added "irpv" directive.
-
 
 version 1.71.17 (Jan 27, 2014)
 =
 [-] Minor corrections.
 
-
 version 1.71.16 (Oct 30, 2013)
 =
 [-] Fixed some bugs in the ELF executable formatter.
-
 
 version 1.71.15 (Oct 26, 2013)
 =
 [-] Fixed some bugs inadvertently introduced in the previous release.
 
-
 version 1.71.14 (Oct 25, 2013)
 =
 [+] Added "postpone" directive to preprocessor.
-
 
 version 1.71.13 (Sep 09, 2013)
 =
 [-] Fixed a bug that caused the expressions containing external symbols
     to overflow from time to time.
-
 
 version 1.71.12 (Aug 04, 2013)
 =
@@ -132,7 +190,6 @@ version 1.71.12 (Aug 04, 2013)
 [-] A previous fix to "store" directive did not apply to all the cases when it
     was incorrectly leaving the data marked as uninitialized. The new fix
     addresses this issue.
-
 
 version 1.71.11 (Jul 09, 2013)
 =
@@ -145,11 +202,9 @@ version 1.71.11 (Jul 09, 2013)
 [-] Address range restrictions for addressing modes no longer apply to addresses
     provided to assembler directives like "label", "virtual" or "load".
 
-
 version 1.71.10 (Apr 03, 2013)
 =
 [-] Fixed a crashing "heap" directive in 64-bit PE format.
-
 
 version 1.71.09 (Mar 30, 2013)
 =
@@ -161,42 +216,35 @@ version 1.71.09 (Mar 30, 2013)
 
 [-] Modified memory allocation algorithm on Windows machines with large RAM.
 
-
 version 1.71.08 (Mar 08, 2013)
 =
 [-] Fixed a bug that caused "irp" to skip processing a list with one empty
     element when default value for iterating variable was specified.
-
 
 version 1.71.07 (Dec 23, 2012)
 =
 [-] Fixed a bug that was causing "used" operator to give incorrect results
     in some very specific cases.
 
-
 version 1.71.06 (Nov 22, 2012)
 =
 [-] Fixed a few bugs caused by unnecesarily strong restrictions on allowed
     types of relocatable values in some places (like "label" directive).
-
 
 version 1.71.05 (Oct 15, 2012)
 =
 [-] Fixed a bug which caused "load" and "store" directives to sometimes
     fail when assembler had preallocated very large amount of memory.
 
-
 version 1.71.04 (Oct 10, 2012)
 =
 [-] Fixed another bug in "org" directive, which was causing it to deal
     incorrectly with negative addresses.
 
-
 version 1.71.03 (Sep 27, 2012)
 =
 [-] Fixed a bug in "org" directive introduced by recent changes, which
     was manifesting with bases larger than 31-bit.
-
 
 version 1.71.02 (Sep 26, 2012)
 =
@@ -204,14 +252,12 @@ version 1.71.02 (Sep 26, 2012)
     relocatable addresses in a reverse order (first substracting/negating
     and then adding the other one).
 
-
 version 1.71.01 (Sep 23, 2012)
 =
 [+] Added support for ADX, RDSEED and SMAP instruction sets.
 
 [-] Fixed the bugs related to creating a new addressing space inside the
     virtual block with "org" directive.
-
 
 version 1.71.00 (Sep 21, 2012)
 =
@@ -224,12 +270,10 @@ version 1.71.00 (Sep 21, 2012)
     first the adressing space label, then the colon and then the
     address inside that addressing space.
 
-
 version 1.70.03 (Jun 29, 2012)
 =
 [-] Allowed to freely upgrade or downgrade the relocatable addresses in
     object format between the 32-bit or 64-bit size.
-
 
 version 1.70.02 (May 22, 2012)
 =
@@ -238,13 +282,11 @@ version 1.70.02 (May 22, 2012)
     used in long mode. Now it is consistent with optimizations done with
     all the other instructions.
 
-
 version 1.70.01 (Apr 30, 2012)
 =
 [-] Corrected a recently introduced bug that caused some illegal
     address expressions to cause an error prematurely during the
     parsing stage.
-
 
 version 1.70 (Apr 17, 2012)
 =
@@ -357,7 +399,6 @@ version 1.68 (Jun 13, 2009)
 
 [+] Added "err" directive that allows to signalize error from the source.
 
-
 version 1.66 (May 7, 2006)
 =
 [+] Added "define" directive to preprocessor, which defines symbolic constants,
@@ -448,7 +489,6 @@ version 1.66 (May 7, 2006)
 
 [-] Many other small bugs fixed.
 
-
 version 1.64 (Aug 8, 2005)
 =
 [+] Output of PE executables for Win64 architecture (with "format PE64"
@@ -472,7 +512,6 @@ version 1.64 (Aug 8, 2005)
     wrongly signaled - fixed.
 
 [-] Other minor fixes and corrections.
-
 
 version 1.62 (Jun 14, 2005)
 =
