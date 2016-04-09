@@ -1,16 +1,16 @@
 
 ; flat assembler DLL interface for Win32
-; Copyright (c) 1999-2014, Tomasz Grysztar.
+; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 
 format MS COFF
 
-extrn '__imp__CreateFileA@28'             as CreateFile : dword
-extrn '__imp__ReadFile@20'                as ReadFile : dword
-extrn '__imp__SetFilePointer@16'          as SetFilePointer : dword
-extrn '__imp__CloseHandle@4'              as CloseHandle : dword
-extrn '__imp__WriteFile@20'               as WriteFile : dword
-extrn '__imp__GetSystemTime@4'            as GetSystemTime : dword
+extrn '__imp__CreateFileA@28'		  as CreateFile : dword
+extrn '__imp__ReadFile@20'		  as ReadFile : dword
+extrn '__imp__SetFilePointer@16'	  as SetFilePointer : dword
+extrn '__imp__CloseHandle@4'		  as CloseHandle : dword
+extrn '__imp__WriteFile@20'		  as WriteFile : dword
+extrn '__imp__GetSystemTime@4'		  as GetSystemTime : dword
 extrn '__imp__GetEnvironmentVariableA@12' as GetEnvironmentVariable : dword
 
 include 'win32a.inc'
@@ -95,8 +95,11 @@ _fasm_Assemble:
 	add	eax,edx
 	mov	[additional_memory_end],eax
 
-	mov	[first_write],0
-	mov	[second_write],0
+	xor	eax,eax
+	mov	[initial_definitions],eax
+
+	mov	[first_write],eax
+	mov	[second_write],eax
 
 	mov	eax,[hDisplayPipe]
 	mov	[display_pipe],eax
