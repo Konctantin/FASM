@@ -122,7 +122,7 @@ _fasm_Assemble:
   done:
 	mov	eax,[ebx+FASM_STATE.condition]
 	pop	edi esi ebx ebp
-	ret	20
+	ret
 
   general_error:
 	mov	esp,[esp_save]
