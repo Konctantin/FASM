@@ -475,7 +475,7 @@ wm_hscroll:
 	inc	[window_position]
 	jmp	moved_window
     hscroll_pos:
-	mov	eax,[sc.nTrackPos]
+	movzx	eax,word [wparam+2]
 	mov	[window_position],eax
 	jmp	moved_window
     hscroll_wleft:

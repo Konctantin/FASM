@@ -3410,6 +3410,8 @@ segment main use32
 	jz	wait_for_input
 	mov	ah,10h
 	int	16h
+	test	ax,ax
+	jz	wait_for_input
 	ret
   number_as_text:
 	push	ebx
@@ -4717,6 +4719,7 @@ segment main use32
 	jne	name_to_select_ok
 	mov	edi,buffer+3000h
 	mov	al,'\'
+	or	ecx,-1
       find_last_directory_name:
 	mov	esi,edi
 	repne	scasb

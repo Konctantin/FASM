@@ -128,14 +128,15 @@ struct REBARBANDINFO
 ends
 
 struct TOOLINFO
-  cbSize   dd ?
-  uFlags   dd ?
-  hwnd	   dq ?
-  uId	   dd ?
-  rect	   RECT
-	   dd ?
-  hInst    dq ?
-  lpszText dq ?
+  cbSize     dd ?
+  uFlags     dd ?
+  hwnd	     dq ?
+  uId	     dq ?
+  rect	     RECT
+  hInst      dq ?
+  lpszText   dq ?
+  lParam     dq ?
+  lpReserved dq ?
 ends
 
 struct TTHITTESTINFO

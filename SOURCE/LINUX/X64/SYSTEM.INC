@@ -1,5 +1,5 @@
 
-; flat assembler interface for Linux
+; flat assembler interface for Linux x64
 ; Copyright (c) 1999-2016, Tomasz Grysztar.
 ; All rights reserved.
 
@@ -32,19 +32,25 @@ init_memory:
 	and	eax,not 0FFFh
 	add	eax,1000h-10000h
 	mov	[stack_limit],eax
-	xor	ebx,ebx
-	mov	eax,45
-	int	0x80
+	xor	edi,edi
+	mov	eax,12
+	syscall
+	mov	r9,not 0FFFFFFFFh
+	test	rax,r9
+	jnz	no_low_memory
 	mov	[additional_memory],eax
 	mov	ecx,[memory_setting]
 	shl	ecx,10
 	jnz	allocate_memory
 	mov	ecx,1000000h
       allocate_memory:
-	mov	ebx,[additional_memory]
-	add	ebx,ecx
-	mov	eax,45
-	int	0x80
+	mov	edi,[additional_memory]
+	add	edi,ecx
+	mov	eax,12
+	syscall
+	mov	r9,not 0FFFFFFFFh
+	test	rax,r9
+	jnz	no_low_memory
 	mov	[memory_end],eax
 	sub	eax,[additional_memory]
 	shr	eax,2
@@ -53,14 +59,18 @@ init_memory:
 	mov	[memory_start],eax
 	ret
 
+no_low_memory:
+	push	_no_low_memory
+	jmp	fatal_error
+
 exit_program:
-	movzx	ebx,al
-	mov	eax,1
-	int	0x80
+	movzx	edi,al
+	mov	eax,60
+	syscall
 
 get_environment_variable:
 	mov	ebx,esi
-	mov	esi,[environment]
+	mov	rsi,[environment]
       compare_variable_names:
 	mov	edx,ebx
       compare_character:
@@ -83,7 +93,7 @@ get_environment_variable:
 	lodsb
 	or	al,al
 	jnz	next_variable
-	cmp	byte [esi],0
+	cmp	byte [rsi],0
 	jne	compare_variable_names
 	ret
       end_of_variable_name:
@@ -100,14 +110,16 @@ get_environment_variable:
 	ret
 
 open:
-	push	esi edi ebp
+	mov	r12d,esi
+	mov	r13d,edi
 	call	adapt_path
-	mov	eax,5
-	mov	ebx,buffer
-	mov	ecx,O_RDONLY
+	mov	eax,2
+	mov	edi,buffer
+	mov	esi,O_RDONLY
 	xor	edx,edx
-	int	0x80
-	pop	ebp edi esi
+	syscall
+	mov	esi,r12d
+	mov	edi,r13d
 	test	eax,eax
 	js	file_error
 	mov	ebx,eax
@@ -129,13 +141,14 @@ open:
 	ja	out_of_memory
 	ret
 create:
-	push	esi edi ebp edx
+	mov	r12d,esi
+	mov	r13d,edi
+	mov	r15d,edx
 	call	adapt_path
-	mov	ebx,buffer
-	mov	ecx,O_CREAT+O_TRUNC+O_WRONLY
+	mov	edi,buffer
+	mov	esi,O_CREAT+O_TRUNC+O_WRONLY
 	mov	edx,S_IRUSR+S_IWUSR+S_IRGRP+S_IROTH
-	pop	eax
-	cmp	eax,[output_file]
+	cmp	r15d,[output_file]
 	jne	do_create
 	cmp	[output_format],5
 	jne	do_create
@@ -143,24 +156,34 @@ create:
 	jnc	do_create
 	or	edx,S_IXUSR+S_IXGRP+S_IXOTH
       do_create:
-	mov	eax,5
-	int	0x80
-	pop	ebp edi esi
+	mov	eax,2
+	syscall
+	mov	esi,r12d
+	mov	edi,r13d
 	test	eax,eax
 	js	file_error
 	mov	ebx,eax
 	clc
 	ret
 close:
-	mov	eax,6
-	int	0x80
+	mov	r13d,edi
+	mov	edi,ebx
+	mov	eax,3
+	syscall
+	mov	edi,r13d
 	ret
 read:
-	push	ecx edx esi edi ebp
-	mov	eax,3
-	xchg	ecx,edx
-	int	0x80
-	pop	ebp edi esi edx ecx
+	mov	r12d,esi
+	mov	r13d,edi
+	mov	eax,0
+	mov	edi,ebx
+	mov	esi,edx
+	mov	edx,ecx
+	syscall
+	mov	ecx,edx
+	mov	edx,esi
+	mov	esi,r12d
+	mov	edi,r13d
 	test	eax,eax
 	js	file_error
 	cmp	eax,ecx
@@ -171,25 +194,35 @@ read:
 	stc
 	ret
 write:
-	push	edx esi edi ebp
-	mov	eax,4
-	xchg	ecx,edx
-	int	0x80
-	pop	ebp edi esi edx
+	mov	r12d,esi
+	mov	r13d,edi
+	mov	eax,1
+	mov	edi,ebx
+	mov	esi,edx
+	mov	edx,ecx
+	syscall
+	mov	ecx,edx
+	mov	edx,esi
+	mov	esi,r12d
+	mov	edi,r13d
 	test	eax,eax
 	js	file_error
 	clc
 	ret
 lseek:
-	mov	ecx,edx
+	mov	r12d,esi
+	mov	r13d,edi
+	mov	edi,ebx
+	mov	esi,edx
 	xor	edx,edx
 	mov	dl,al
-	mov	eax,19
-	int	0x80
+	mov	eax,8
+	syscall
+	mov	esi,r12d
+	mov	edi,r13d
 	ret
 
 display_string:
-	push	ebx
 	mov	edi,esi
 	mov	edx,esi
 	or	ecx,-1
@@ -197,30 +230,32 @@ display_string:
 	repne	scasb
 	neg	ecx
 	sub	ecx,2
-	mov	eax,4
-	mov	ebx,[con_handle]
-	xchg	ecx,edx
-	int	0x80
-	pop	ebx
+	mov	eax,1
+	mov	edi,[con_handle]
+	mov	esi,edx
+	mov	edx,ecx
+	syscall
 	ret
 display_character:
-	push	ebx
+	mov	r12d,esi
+	mov	r13d,edi
 	mov	[character],dl
-	mov	eax,4
-	mov	ebx,[con_handle]
-	mov	ecx,character
+	mov	eax,1
+	mov	edi,[con_handle]
+	mov	esi,character
 	mov	edx,1
-	int	0x80
-	pop	ebx
+	syscall
+	mov	esi,r12d
+	mov	edi,r13d
 	ret
 display_number:
-	push	ebx
+	mov	r14d,ebx
 	mov	ecx,1000000000
 	xor	edx,edx
 	xor	bl,bl
       display_loop:
 	div	ecx
-	push	edx
+	mov	r15d,edx
 	cmp	ecx,1
 	je	display_digit
 	or	bl,bl
@@ -231,19 +266,19 @@ display_number:
       display_digit:
 	mov	dl,al
 	add	dl,30h
-	push	ebx ecx
+	mov	r10d,ecx
 	call	display_character
-	pop	ecx ebx
+	mov	ecx,r10d
       digit_ok:
 	mov	eax,ecx
 	xor	edx,edx
 	mov	ecx,10
 	div	ecx
 	mov	ecx,eax
-	pop	eax
+	mov	eax,r15d
 	or	ecx,ecx
 	jnz	display_loop
-	pop	ebx
+	mov	ebx,r14d
 	ret
 
 display_user_messages:
@@ -262,13 +297,12 @@ display_block:
 	add	[displayed_count],ecx
 	mov	al,[esi+ecx-1]
 	mov	[last_displayed],al
-	push	ebx
-	mov	eax,4
-	mov	ebx,[con_handle]
+	mov	r13d,edi
+	mov	eax,1
+	mov	edi,[con_handle]
 	mov	edx,ecx
-	mov	ecx,esi
-	int	0x80
-	pop	ebx
+	syscall
+	mov	edi,r13d
       block_displayed:
 	ret
 
@@ -451,11 +485,13 @@ assembler_error:
 	jmp	exit_program
 
 make_timestamp:
-	mov	eax,13
-	mov	ebx,timestamp
-	int	0x80
+	mov	r13d,edi
+	mov	eax,201
+	mov	edi,timestamp
+	syscall
 	mov	eax,dword [timestamp]
 	mov	edx,dword [timestamp+4]
+	mov	edi,r13d
 	ret
 
 error_prefix db 'error: ',0
