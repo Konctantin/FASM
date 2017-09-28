@@ -2,6 +2,42 @@
 Visit http://flatassembler.net/ for more information.
 
 
+version 1.71.64 (Jul 18, 2017)
+
+[-] Minor fixes in command line interfaces.
+
+
+version 1.71.63 (Jun 21, 2017)
+
+[-] Minor fixes in formatter.
+
+
+version 1.71.62 (May 08, 2017)
+
+[-] Minor correction in "kmovq" error checking.
+
+[-] Minor fix in the encoding of some absolute addresses in long mode.
+
+
+version 1.71.61 (May 04, 2017)
+
+[-] Minor correction in "vcvtpd2dq" error checking.
+
+
+version 1.71.60 (Feb 05, 2017)
+
+[+] Updated documentation.
+
+[-] Minor corrections in error detection of some AVX instruction handlers.
+
+
+version 1.71.59 (Jan 20,2017)
+
+[-] Corrected range-checking for minimal denormal floating-point values.
+
+[-] Other minor fixes.
+
+
 version 1.71.58 (Dec 08, 2016)
 
 [+] Added a 64-bit ELF executable version of flat assembler for Linux. It has

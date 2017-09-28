@@ -1,6 +1,6 @@
 
 ; flat assembler IDE for DOS/DPMI
-; Copyright (c) 1999-2016, Tomasz Grysztar.
+; Copyright (c) 1999-2017, Tomasz Grysztar.
 ; All rights reserved.
 
 	format	MZ
@@ -305,6 +305,7 @@ segment main use32
 	mov	al,'.'
 	stosb
       replace_extension:
+	mov	ecx,edi
 	mov	eax,'INI'
 	stosd
 
@@ -543,6 +544,8 @@ segment main use32
 	je	ascii_table
 	jmp	get_command
   character:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	get_command
 	cmp	[was_selection],0
 	je	no_selection_to_replace
 	call	store_status_for_undo
@@ -572,6 +575,8 @@ segment main use32
 	mov	[selection_line],0
 	jmp	text_modified
   tab_key:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	get_command
 	call	store_status_for_undo
 	cmp	[was_selection],0
 	je	tab_securesel
@@ -584,6 +589,8 @@ segment main use32
 	call	finish_edit
 	jmp	text_modified
   enter_key:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	get_command
 	call	store_status_for_undo
 	cmp	[was_selection],0
 	je	enter_secureselection_ok
@@ -598,6 +605,8 @@ segment main use32
 	call	finish_edit
 	jmp	text_modified
   backspace_key:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	get_command
 	test	byte [fs:17h],100b
 	jnz	replace
 	cmp	[was_selection],0
@@ -658,6 +667,8 @@ segment main use32
   del_key:
 	test	byte [fs:17h],11b
 	jnz	block_cut
+	test	[editor_mode],FEMODE_READONLY
+	jnz	get_command
 	cmp	[was_selection],0
 	je	no_selection_on_del
 	test	[editor_style],FES_SECURESEL
@@ -687,10 +698,14 @@ segment main use32
 	mov	[selection_line],0
 	jmp	text_modified
   ctrl_y_key:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	get_command
 	call	store_status_for_undo
 	call	remove_line
 	jmp	text_modified
   f6_key:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	get_command
 	call	store_status_for_undo
 	call	duplicate_line
 	jmp	text_modified
@@ -793,6 +808,8 @@ segment main use32
 	xor	[editor_mode],FEMODE_VERTICALSEL
 	jmp	main_loop
   block_delete:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	get_command
 	cmp	[was_selection],0
 	je	get_command
 	call	store_status_for_undo
@@ -826,6 +843,8 @@ segment main use32
 	call	copy_to_clipboard
 	jmp	block_delete
   block_paste:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	get_command
 	call	store_status_for_undo
 	cmp	[was_selection],0
 	je	paste_secureselection_ok
@@ -857,6 +876,8 @@ segment main use32
 	call	undo_changes
 	jmp	operation_done
   undo:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	get_command
 	test	[editor_mode],FEMODE_NOUNDO
 	jnz	enable_undo
 	test	byte [fs:17h],11b
@@ -867,6 +888,8 @@ segment main use32
 	call	undo_changes
 	jmp	operation_done
   redo:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	get_command
 	mov	eax,[redo_data]
 	test	eax,eax
 	jz	get_command
@@ -1021,6 +1044,8 @@ segment main use32
 	jmp	main_loop
 
   save_current:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	save_as
 	cmp	[file_path],0
 	jne	do_save
   save_as:
@@ -1499,6 +1524,15 @@ segment main use32
 	lea	edx,[edi-buffer]
 	mov	ax,0D00h
 	stosw
+	lea	esi,[edi-buffer]
+	xor	al,al
+	stosb
+	mov	al,20h
+	mov	ecx,11
+	rep	stosb
+	xor	al,al
+	mov	ecx,25
+	rep	stosb
 	lea	ebx,[edi-buffer]
 	xor	eax,eax
 	stosw
@@ -1506,7 +1540,7 @@ segment main use32
 	shl	eax,16
 	mov	ax,dx
 	stosd
-	xor	eax,eax
+	mov	ax,si
 	stosd
 	stosd
 	mov	ax,4B00h
@@ -3234,16 +3268,28 @@ segment main use32
 	rep	movsb
 	mov	edi,ebx
 	sub	ebx,2
-	mov	byte [ebx],0B3h
-	push	ebx
+	test	[editor_mode],FEMODE_READONLY
+	jnz	readonly_status
 	mov	eax,[undo_data]
 	cmp	eax,[unmodified_state]
-	je	modified_status_ok
+	je	editor_status_ok
 	mov	eax,'Modi'
 	stosd
 	mov	eax,'fied'
 	stosd
-     modified_status_ok:
+	jmp	editor_status_ok
+     readonly_status:
+	dec	ebx
+	dec	edi
+	mov	eax,'Read'
+	stosd
+	mov	al,'-'
+	stosb
+	mov	eax,'only'
+	stosd
+     editor_status_ok:
+	mov	byte [ebx],0B3h
+	push	ebx
 	mov	edi,screen_row_buffer+1
 	xor	eax,eax
 	mov	edx,[previous_instance]
@@ -6426,7 +6472,7 @@ segment main use32
 ; String constants
 
   _caption db 'flat assembler ',VERSION_STRING,0
-  _copyright db 'Copyright (c) 1999-2016, Tomasz Grysztar',0
+  _copyright db 'Copyright (c) 1999-2017, Tomasz Grysztar',0
 
   _null db 0
   _untitled db 'Untitled',0
@@ -6555,6 +6601,7 @@ segment main use32
   FEMODE_OVERWRITE   = 1
   FEMODE_VERTICALSEL = 2
   FEMODE_NOUNDO      = 4
+  FEMODE_READONLY    = 8
 
   FEFIND_CASESENSITIVE = 1
   FEFIND_WHOLEWORDS    = 2

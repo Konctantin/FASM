@@ -626,6 +626,15 @@ wm_gesture:
 	mov	dword [pan_x],eax
 	jmp	done
 wm_mousewheel:
+	test	[editor_style],FES_TIMESCROLL
+	jz	space_scroll
+	lea	ebx,[kbstate]
+	invoke	GetKeyboardState,ebx
+	test	[kbstate+VK_MENU],80h
+	jz	space_scroll
+	test	[kbstate+VK_CONTROL],80h
+	jnz	time_scroll
+    space_scroll:
 	mov	esi,[window_line]
 	mov	eax,[wparam]
 	sar	eax,16
@@ -649,6 +658,36 @@ wm_mousewheel:
 	neg	ecx
 	jnz	scrolling_down
 	jmp	done
+    time_scroll:
+	test	[editor_mode],FEMODE_READONLY
+	jnz	ignore
+	test	[editor_mode],FEMODE_NOUNDO
+	jnz	enable_undo
+      move_through_time:
+	cmp	word [wparam+2],0
+	jge	backward_in_time
+	neg	word [wparam+2]
+	jmp	forward_in_time
+      backward_in_time:
+	sub	word [wparam+2],120
+	jc	time_scroll_done
+	mov	eax,[undo_data]
+	test	eax,eax
+	jz	time_scroll_done
+	call	undo_changes
+	jmp	backward_in_time
+      forward_in_time:
+	sub	word [wparam+2],120
+	jc	time_scroll_done
+	mov	eax,[redo_data]
+	test	eax,eax
+	jz	time_scroll_done
+	call	redo_changes
+	jmp	forward_in_time
+      time_scroll_done:
+	call	create_caret
+	mov	[last_operation],0
+	jmp	text_changed
 wm_size:
 	call	update_positions
 	mov	eax,[screen_width]

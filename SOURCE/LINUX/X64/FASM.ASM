@@ -1,6 +1,6 @@
 
 ; flat assembler interface for Linux x64
-; Copyright (c) 1999-2016, Tomasz Grysztar.
+; Copyright (c) 1999-2017, Tomasz Grysztar.
 ; All rights reserved.
 
 	format	ELF64 executable 3 at 400000h
@@ -251,6 +251,8 @@ get_params:
 	ret
       convert_definition_option:
 	mov	edx,edi
+	cmp	edi,predefinitions+1000h
+	jae	bad_definition_option
 	xor	al,al
 	stosb
       copy_definition_name:
@@ -261,6 +263,8 @@ get_params:
 	je	bad_definition_option
 	or	al,al
 	jz	bad_definition_option
+	cmp	edi,predefinitions+1000h
+	jae	bad_definition_option
 	stosb
 	inc	byte [edx]
 	jnz	copy_definition_name
@@ -273,10 +277,14 @@ get_params:
 	je	definition_value_end
 	or	al,al
 	jz	definition_value_end
+	cmp	edi,predefinitions+1000h
+	jae	bad_definition_option
 	stosb
 	jmp	copy_definition_value
       definition_value_end:
 	dec	rsi
+	cmp	edi,predefinitions+1000h
+	jae	bad_definition_option
 	xor	al,al
 	stosb
 	clc
@@ -296,7 +304,7 @@ include 'system.inc'
 
 include '..\..\version.inc'
 
-_copyright db 'Copyright (c) 1999-2016, Tomasz Grysztar',0xA,0
+_copyright db 'Copyright (c) 1999-2017, Tomasz Grysztar',0xA,0
 
 _logo db 'flat assembler  version ',VERSION_STRING,0
 _usage db 0xA

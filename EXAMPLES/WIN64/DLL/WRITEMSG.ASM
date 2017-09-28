@@ -31,14 +31,14 @@ section '.bss' data readable writeable
 
 section '.edata' export data readable
 
-    export 'WRITEMSG.DLL',\
-	   WriteMessage,'WriteMessage'
+  export 'WRITEMSG.DLL',\
+	 WriteMessage,'WriteMessage'
 
 section '.reloc' fixups data readable discardable
 
-    if $=$$
-	dd 0,8		; if there are no fixups, generate dummy entry
-    end if
+  if $=$$
+    dd 0,8		; if there are no fixups, generate dummy entry
+  end if
 
 section '.idata' import data readable writeable
 

@@ -6,7 +6,7 @@
 format PE DLL GUI 4.0
 entry DLLEntryPoint
 
-include 'win32a.inc'
+include '..\..\INCLUDE\win32a.inc'
 include 'fasm.ash'
 
 section '.data' data readable writeable
@@ -432,7 +432,7 @@ section '.idata' import data readable writeable
 
   library kernel32,'KERNEL32.DLL'
 
-  include 'api\kernel32.inc'
+  include '..\..\INCLUDE\api\kernel32.inc'
 
 section '.edata' export data readable
 

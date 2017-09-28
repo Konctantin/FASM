@@ -1,6 +1,6 @@
 
 ; flat assembler IDE for Win32
-; Copyright (c) 1999-2016, Tomasz Grysztar.
+; Copyright (c) 1999-2017, Tomasz Grysztar.
 ; All rights reserved.
 
 format PE GUI 4.0 large NX
@@ -12,7 +12,7 @@ include 'fedit.ash'
 
 include '..\..\version.inc'
 
-IDE_VERSION_STRING equ "0.98.03"
+IDE_VERSION_STRING equ "0.98.04"
 
 struct EDITITEM
   header      TC_ITEMHEADER
@@ -100,6 +100,7 @@ section '.data' data readable writeable
   _key_options_optimalfill db 'OptimalFill',0
   _key_options_revivedeadkeys db 'ReviveDeadKeys',0
   _key_options_consolecaret db 'ConsoleCaret',0
+  _key_options_timescroll db 'TimeScroll',0
   _key_options_oneinstanceonly db 'OneInstanceOnly',0
   _section_colors db 'Colors',0
   _key_color_text db 'Text',0
@@ -157,7 +158,7 @@ section '.data' data readable writeable
 		     db 'Realtime',0
 		     db 0
 
-  fedit_style dd FES_AUTOINDENT+FES_SMARTTABS+FES_OPTIMALFILL+FES_CONSOLECARET
+  fedit_style dd FES_AUTOINDENT+FES_SMARTTABS+FES_CONSOLECARET
 
   editor_colors rd 4
   asm_syntax_colors dd 0xF03030,0x009000,0x0000B0,0x808080
@@ -631,6 +632,7 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	stdcall GetIniBit,ini_path,_section_options,_key_options_optimalfill,fedit_style,FES_OPTIMALFILL
 	stdcall GetIniBit,ini_path,_section_options,_key_options_revivedeadkeys,fedit_style,FES_REVIVEDEADKEYS
 	stdcall GetIniBit,ini_path,_section_options,_key_options_consolecaret,fedit_style,FES_CONSOLECARET
+	stdcall GetIniBit,ini_path,_section_options,_key_options_timescroll,fedit_style,FES_TIMESCROLL
 	stdcall GetIniColor,ini_path,_section_colors,_key_color_text,editor_colors
 	stdcall GetIniColor,ini_path,_section_colors,_key_color_background,editor_colors+4
 	stdcall GetIniColor,ini_path,_section_colors,_key_color_seltext,editor_colors+8
@@ -899,6 +901,9 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	or	[command_flags],1
 	jmp	allocate_path_buffer
   fmsave:
+	invoke	SendMessage,[hwnd_fedit],FEM_GETMODE,0,0
+	test	eax,FEMODE_READONLY
+	jnz	finish
 	mov	[ei.header.mask],TCIF_PARAM
 	invoke	SendMessage,[hwnd_tabctrl],TCM_GETITEM,[wparam],ei
 	or	eax,eax
@@ -1140,6 +1145,12 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	and	eax,MF_CHECKED
 	or	eax,MF_BYCOMMAND
 	invoke	CheckMenuItem,[wparam],IDM_REVIVEDEADKEYS,eax
+	test	[fedit_style],FES_TIMESCROLL
+	setnz	al
+	neg	al
+	and	eax,MF_CHECKED
+	or	eax,MF_BYCOMMAND
+	invoke	CheckMenuItem,[wparam],IDM_TIMESCROLL,eax
 	cmp	[help_path],0
 	sete	bl
 	neg	bl
@@ -1263,6 +1274,8 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	je	option_optimalfill
 	cmp	eax,IDM_REVIVEDEADKEYS
 	je	option_revivedeadkeys
+	cmp	eax,IDM_TIMESCROLL
+	je	option_timescroll
 	cmp	eax,IDM_CALCULATOR
 	je	calculator
 	cmp	eax,IDM_CONTENTS
@@ -1679,6 +1692,9 @@ proc MainWindow hwnd,wmsg,wparam,lparam
   option_revivedeadkeys:
 	xor	[fedit_style],FES_REVIVEDEADKEYS
 	jmp	update
+  option_timescroll:
+	xor	[fedit_style],FES_TIMESCROLL
+	jmp	update
   calculator:
 	invoke	DialogBoxParam,[hinstance],IDD_CALCULATOR,[hwnd],CalculatorDialog,0
 	jmp	finish
@@ -1893,6 +1909,7 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	stdcall WriteIniBit,ini_path,_section_options,_key_options_optimalfill,[fedit_style],FES_OPTIMALFILL
 	stdcall WriteIniBit,ini_path,_section_options,_key_options_revivedeadkeys,[fedit_style],FES_REVIVEDEADKEYS
 	stdcall WriteIniBit,ini_path,_section_options,_key_options_consolecaret,[fedit_style],FES_CONSOLECARET
+	stdcall WriteIniBit,ini_path,_section_options,_key_options_timescroll,[fedit_style],FES_TIMESCROLL
 	stdcall WriteIniColor,ini_path,_section_colors,_key_color_text,[editor_colors]
 	stdcall WriteIniColor,ini_path,_section_colors,_key_color_background,[editor_colors+4]
 	stdcall WriteIniColor,ini_path,_section_colors,_key_color_seltext,[editor_colors+8]
@@ -3426,6 +3443,7 @@ section '.rsrc' resource data readable
   IDM_SMARTTABS      = 1508
   IDM_OPTIMALFILL    = 1509
   IDM_REVIVEDEADKEYS = 1510
+  IDM_TIMESCROLL     = 1511
   IDM_CONTENTS	     = 1901
   IDM_KEYWORD	     = 1902
   IDM_PICKHELP	     = 1903
@@ -3508,7 +3526,8 @@ section '.rsrc' resource data readable
 		menuitem 'Automatic &indents',IDM_AUTOINDENT
 		menuitem 'Smart &tabulation',IDM_SMARTTABS
 		menuitem '&Optimal fill on saving',IDM_OPTIMALFILL
-		menuitem '&Revive dead keys',IDM_REVIVEDEADKEYS,MFR_END
+		menuitem '&Revive dead keys',IDM_REVIVEDEADKEYS
+		menuitem 'Ti&me scrolling',IDM_TIMESCROLL,MFR_END
        menuitem '&Help',0,MFR_POPUP + MFR_END
 		menuitem '&Contents' _ 'Alt+F1',IDM_CONTENTS
 		menuitem '&Keyword search' _ 'F1',IDM_KEYWORD
@@ -3665,7 +3684,7 @@ section '.rsrc' resource data readable
   enddialog
 
   dialog about_dialog,'About',40,40,172,60,WS_CAPTION+WS_POPUP+WS_SYSMENU+DS_MODALFRAME
-    dialogitem 'STATIC',<'flat assembler ',2014h,' version ',VERSION_STRING,0Dh,0Ah,'Copyright ',0A9h,' 1999-2016 Tomasz Grysztar.'>,-1,27,10,144,40,WS_VISIBLE+SS_CENTER
+    dialogitem 'STATIC',<'flat assembler ',2014h,' version ',VERSION_STRING,0Dh,0Ah,'Copyright ',0A9h,' 1999-2017 Tomasz Grysztar.'>,-1,27,10,144,40,WS_VISIBLE+SS_CENTER
     dialogitem 'STATIC',IDI_MAIN,-1,8,8,32,32,WS_VISIBLE+SS_ICON
     dialogitem 'STATIC','',-1,4,34,164,11,WS_VISIBLE+SS_ETCHEDHORZ
     dialogitem 'STATIC',<'flat editor version ',FEDIT_VERSION_STRING>,-1,4,38,100,20,WS_VISIBLE+SS_LEFT
@@ -3679,7 +3698,7 @@ section '.rsrc' resource data readable
 
   versioninfo version,VOS__WINDOWS32,VFT_APP,VFT2_UNKNOWN,LANG_ENGLISH+SUBLANG_DEFAULT,0,\
 	      'FileDescription','flat assembler',\
-	      'LegalCopyright',<'Copyright ',0A9h,' 1999-2016 Tomasz Grysztar.'>,\
+	      'LegalCopyright',<'Copyright ',0A9h,' 1999-2017 Tomasz Grysztar.'>,\
 	      'FileVersion',IDE_VERSION_STRING,\
 	      'ProductVersion',VERSION_STRING,\
 	      'OriginalFilename','FASMW.EXE'

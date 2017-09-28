@@ -13,7 +13,7 @@ extrn '__imp__WriteFile@20'		  as WriteFile : dword
 extrn '__imp__GetSystemTime@4'		  as GetSystemTime : dword
 extrn '__imp__GetEnvironmentVariableA@12' as GetEnvironmentVariable : dword
 
-include 'win32a.inc'
+include '..\..\INCLUDE\win32a.inc'
 include '..\DLL\fasm.ash'
 
 section '.data' data readable writeable

@@ -1,6 +1,6 @@
 
 ; flat assembler core
-; Copyright (c) 1999-2016, Tomasz Grysztar.
+; Copyright (c) 1999-2017, Tomasz Grysztar.
 ; All rights reserved.
 
 avx_single_source_pd_instruction_er_evex:
@@ -641,6 +641,11 @@ avx_movd_instruction:
 	cmp	ah,16
 	jne	invalid_operand_size
 	mov	[postbyte_register],al
+      avx_movd_reg_ready:
+	test	[rex_prefix],8
+	jz	nomem_instruction_ready
+	cmp	[code_type],64
+	jne	illegal_instruction
 	jmp	nomem_instruction_ready
       avx_movd_xmmreg:
 	sub	[extended_code],10h
@@ -676,7 +681,7 @@ avx_movd_instruction:
 	cmp	ah,[mmx_size]
 	jne	invalid_operand_size
 	mov	bl,al
-	jmp	nomem_instruction_ready
+	jmp	avx_movd_reg_ready
       avx_movq_xmmreg_xmmreg:
 	cmp	[mmx_size],8
 	jne	invalid_operand
@@ -1349,6 +1354,8 @@ kmov_instruction:
 	jmp	nomem_instruction_ready
       kmov_f2_w1:
 	or	[rex_prefix],8
+	cmp	[code_type],64
+	jne	illegal_instruction
       kmov_f2:
 	mov	[opcode_prefix],0F2h
 	jmp	nomem_instruction_ready
@@ -1891,6 +1898,9 @@ avx_pbroadcastq_instruction:
 	or	al,al
 	jz	avx_broadcast_reg_general_reg_size_ok
 	cmp	al,ah
+	je	avx_broadcast_reg_general_reg_size_ok
+	ja	invalid_operand_size
+	cmp	ah,4
 	jne	invalid_operand_size
       avx_broadcast_reg_general_reg_size_ok:
 	cmp	al,4
@@ -2111,6 +2121,8 @@ avx_pinsrd_instruction:
 	mov	cl,4
 	jmp	avx_pinsr_instruction_3a
 avx_pinsrq_instruction:
+	cmp	[code_type],64
+	jne	illegal_instruction
 	mov	cl,8
 	or	[rex_prefix],8
       avx_pinsr_instruction_3a:
@@ -2236,6 +2248,8 @@ avx_cvttpd2dq_instruction:
 	mov	al,[operand_size]
 	or	al,al
 	jz	avx_cvt_q_size_not_specified
+	cmp	al,64
+	ja	invalid_operand_size
 	shr	al,1
 	cmp	al,ah
 	je	avx_cvt_q_size_ok
@@ -2449,6 +2463,7 @@ avx_maskmov_instruction:
 	cmp	al,','
 	jne	invalid_operand
 	lods	byte [esi]
+	call	get_size_operator
 	cmp	al,'['
 	jne	invalid_operand
 	call	get_address

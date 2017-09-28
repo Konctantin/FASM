@@ -5,8 +5,7 @@ macro cominvk object,proc,[arg]
  { common
     assert defined object#.com.object ; must be a COM object
     macro call dummy
-    \{ mov rax,[object]
-       mov rax,[rax]
+    \{ mov rax,[rcx]
        call [rax+object#.#proc] \}
     fastcall ,[object],arg
     purge call }
@@ -15,14 +14,7 @@ macro comcall handle,interface,proc,[arg]
  { common
     assert defined interface#.com.interface ; must be a COM interface
     macro call dummy
-    \{ if handle eqtype rax | handle eqtype 0
-	local ..handle
-	label ..handle at handle
-	mov rax,[..handle]
-       else
-	mov rax,handle
-	mov rax,[rax]
-       end if
+    \{ mov rax,[rcx]
        call [rax+interface#.#proc] \}
     fastcall ,handle,arg
     purge call }
