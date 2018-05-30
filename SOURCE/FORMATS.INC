@@ -1,6 +1,6 @@
 
 ; flat assembler core
-; Copyright (c) 1999-2017, Tomasz Grysztar.
+; Copyright (c) 1999-2018, Tomasz Grysztar.
 ; All rights reserved.
 
 formatter:
@@ -9,13 +9,13 @@ formatter:
 	jne	output_path_ok
 	mov	esi,[input_file]
 	mov	edi,[free_additional_memory]
-      copy_output_path:
+      duplicate_output_path:
 	lods	byte [esi]
 	cmp	edi,[structures_buffer]
 	jae	out_of_memory
 	stos	byte [edi]
 	or	al,al
-	jnz	copy_output_path
+	jnz	duplicate_output_path
 	dec	edi
 	mov	eax,edi
       find_extension:
@@ -326,14 +326,9 @@ public_directive:
 	mov	dx,[current_pass]
 	mov	[eax+18],dx
 	or	byte [eax+8],8
-	cmp	[symbols_file],0
-	je	public_reference_ok
-	cmp	[next_pass_needed],0
-	jne	public_reference_ok
 	mov	ebx,eax
 	call	store_label_reference
 	mov	eax,ebx
-      public_reference_ok:
 	mov	ebx,[free_additional_memory]
 	lea	edx,[ebx+10h]
 	cmp	edx,[structures_buffer]

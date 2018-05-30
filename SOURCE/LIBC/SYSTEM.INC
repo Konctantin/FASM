@@ -1,6 +1,6 @@
 
 ; flat assembler interface for Unix/libc
-; Copyright (c) 1999-2017, Tomasz Grysztar.
+; Copyright (c) 1999-2018, Tomasz Grysztar.
 ; All rights reserved.
 
 extrn malloc
@@ -131,9 +131,16 @@ lseek:
 	push	ebx
 	movzx	eax,al
 	ccall	fseek,ebx,edx,eax
+	test	eax,eax
+	jnz	lseek_error
 	mov	ebx,[esp]
 	ccall	ftell,ebx
 	pop	ebx
+	clc
+	ret
+    lseek_error:
+	pop	ebx
+	stc
 	ret
 
 display_string:

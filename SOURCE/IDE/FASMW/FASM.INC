@@ -1,6 +1,6 @@
 
 ; flat assembler interface for Win32 IDE
-; Copyright (c) 1999-2017, Tomasz Grysztar.
+; Copyright (c) 1999-2018, Tomasz Grysztar.
 ; All rights reserved.
 
 flat_assembler:
@@ -9,6 +9,8 @@ flat_assembler:
 	mov	edx,[esp+4]
 	mov	[input_file],edx
 	invoke	GetFullPathName,edx,1000h,path_buffer,param_buffer
+	or	eax,eax
+	jz	exit_program
 	mov	edi,[param_buffer]
 	mov	byte [edi-1],0
 	mov	[symbols_file],0
@@ -184,6 +186,7 @@ lseek:
 	invoke	SetFilePointer,ebx,edx,0,eax
 	cmp	eax,-1
 	je	file_error
+	clc
 	retn
 
 display_block:

@@ -82,7 +82,7 @@ struct PRINTDLG
   nMaxPage	      dw ?
   nCopies	      dw ?,?
   hInstance	      dq ?
-  lCustData	      dd ?
+  lCustData	      dd ?,?
   lpfnPrintHook       dq ?
   lpfnSetupHook       dq ?
   lpPrintTemplateName dq ?

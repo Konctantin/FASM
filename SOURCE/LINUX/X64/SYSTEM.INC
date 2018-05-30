@@ -1,6 +1,6 @@
 
 ; flat assembler interface for Linux x64
-; Copyright (c) 1999-2017, Tomasz Grysztar.
+; Copyright (c) 1999-2018, Tomasz Grysztar.
 ; All rights reserved.
 
 O_ACCMODE  = 0003o
@@ -220,6 +220,9 @@ lseek:
 	syscall
 	mov	esi,r12d
 	mov	edi,r13d
+	cmp	eax,-1
+	je	file_error
+	clc
 	ret
 
 display_string:

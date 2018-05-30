@@ -1,6 +1,6 @@
 
 ; flat assembler IDE for Win32
-; Copyright (c) 1999-2017, Tomasz Grysztar.
+; Copyright (c) 1999-2018, Tomasz Grysztar.
 ; All rights reserved.
 
 format PE GUI 4.0 large NX
@@ -12,7 +12,7 @@ include 'fedit.ash'
 
 include '..\..\version.inc'
 
-IDE_VERSION_STRING equ "0.98.04"
+IDE_VERSION_STRING equ "0.99.00"
 
 struct EDITITEM
   header      TC_ITEMHEADER
@@ -30,6 +30,7 @@ FM_GETSELECTED	= WM_USER + 6
 FM_GETASSIGNED	= WM_USER + 7
 FM_GETHANDLE	= WM_USER + 8
 FM_OPENREADONLY = WM_USER + 11h
+FM_SAVEMODIFIED = WM_USER + 12h
 
 struct HH_AKLINK
   cbStruct     dd ?
@@ -513,6 +514,8 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	je	fmopenreadonly
 	cmp	[wmsg],FM_SAVE
 	je	fmsave
+	cmp	[wmsg],FM_SAVEMODIFIED
+	je	fmsavemodified
 	cmp	[wmsg],FM_COMPILE
 	je	fmcompile
 	cmp	[wmsg],FM_SELECT
@@ -794,7 +797,7 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	mov	[ei.hwnd],eax
 	mov	eax,[wparam]
 	mov	[ei.header.pszText],eax
-	mov	[ei.pszpath],0
+	and	[ei.pszpath],0
 	invoke	SendMessage,[hwnd_tabctrl],TCM_GETITEMCOUNT,0,0
 	invoke	SendMessage,[hwnd_tabctrl],TCM_INSERTITEM,eax,ei
 	mov	ebx,eax
@@ -900,16 +903,24 @@ proc MainWindow hwnd,wmsg,wparam,lparam
   fmopenreadonly:
 	or	[command_flags],1
 	jmp	allocate_path_buffer
+  fmsavemodified:
+	or	ebx,-1
+	jmp	save_single_file
   fmsave:
-	invoke	SendMessage,[hwnd_fedit],FEM_GETMODE,0,0
-	test	eax,FEMODE_READONLY
-	jnz	finish
+	xor	ebx,ebx
+      save_single_file:
 	mov	[ei.header.mask],TCIF_PARAM
 	invoke	SendMessage,[hwnd_tabctrl],TCM_GETITEM,[wparam],ei
 	or	eax,eax
 	jz	failed
-	cmp	[ei.pszpath],NULL
+	cmp	[ei.pszpath],0
 	je	failed
+	invoke	SendMessage,[ei.hwnd],FEM_GETMODE,0,0
+	test	eax,FEMODE_READONLY
+	jnz	ok
+	invoke	SendMessage,[ei.hwnd],FEM_ISUNMODIFIED,0,0
+	and	eax,ebx
+	jnz	ok
 	invoke	SendMessage,[ei.hwnd],WM_GETTEXTLENGTH,0,0
 	inc	eax
 	mov	[wparam],eax
@@ -945,7 +956,7 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	invoke	SendMessage,[hwnd_tabctrl],TCM_GETCURSEL,0,0
 	mov	[assigned_file],eax
       assigned_ok:
-	invoke	SendMessage,[hwnd_main],FM_SAVE,eax,0
+	invoke	SendMessage,[hwnd_main],FM_SAVEMODIFIED,eax,0
 	xor	ebx,ebx
 	or	eax,eax
 	jz	save_all
@@ -961,11 +972,7 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	invoke	SendMessage,[hwnd_tabctrl],TCM_GETITEM,ebx,ei
 	or	eax,eax
 	jz	do_compile
-	invoke	SendMessage,[ei.hwnd],FEM_ISUNMODIFIED,0,0
-	or	eax,eax
-	jnz	save_next
-	invoke	SendMessage,[hwnd_main],FM_SAVE,ebx,0
-      save_next:
+	invoke	SendMessage,[hwnd_main],FM_SAVEMODIFIED,ebx,0
 	inc	ebx
 	jmp	save_all
       do_compile:
@@ -1363,6 +1370,7 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	jnz	alloc_ok
 	invoke	VirtualAlloc,0,1000h,MEM_COMMIT,PAGE_READWRITE
 	mov	[ei.pszpath],eax
+	and	byte [eax],0
       alloc_ok:
 	mov	[lparam],eax
 	mov	[ofn.lpstrFile],eax
@@ -1407,6 +1415,12 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	xor	eax,eax
 	jmp	finish
       save_cancelled:
+	mov	eax,[ei.pszpath]
+	cmp	byte [eax],0
+	jne	preserve_save_path
+	invoke	VirtualFree,[ei.pszpath],0,MEM_RELEASE
+	and	[ei.pszpath],0
+      preserve_save_path:
 	invoke	SendMessage,[hwnd_tabctrl],TCM_GETCURSEL,0,0
 	invoke	SendMessage,[hwnd_tabctrl],TCM_SETITEM,eax,ei
 	jmp	finish
@@ -1940,6 +1954,7 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	invoke	WinHelp,[hwnd],0,HELP_QUIT,0
 	invoke	ImageList_Destroy,[himl]
 	invoke	PostQuitMessage,0
+  ok:
 	xor	eax,eax
   finish:
 	pop	edi esi ebx
@@ -3684,7 +3699,7 @@ section '.rsrc' resource data readable
   enddialog
 
   dialog about_dialog,'About',40,40,172,60,WS_CAPTION+WS_POPUP+WS_SYSMENU+DS_MODALFRAME
-    dialogitem 'STATIC',<'flat assembler ',2014h,' version ',VERSION_STRING,0Dh,0Ah,'Copyright ',0A9h,' 1999-2017 Tomasz Grysztar.'>,-1,27,10,144,40,WS_VISIBLE+SS_CENTER
+    dialogitem 'STATIC',<'flat assembler ',2014h,' version ',VERSION_STRING,0Dh,0Ah,'Copyright ',0A9h,' 1999-2018 Tomasz Grysztar.'>,-1,27,10,144,40,WS_VISIBLE+SS_CENTER
     dialogitem 'STATIC',IDI_MAIN,-1,8,8,32,32,WS_VISIBLE+SS_ICON
     dialogitem 'STATIC','',-1,4,34,164,11,WS_VISIBLE+SS_ETCHEDHORZ
     dialogitem 'STATIC',<'flat editor version ',FEDIT_VERSION_STRING>,-1,4,38,100,20,WS_VISIBLE+SS_LEFT
@@ -3698,7 +3713,7 @@ section '.rsrc' resource data readable
 
   versioninfo version,VOS__WINDOWS32,VFT_APP,VFT2_UNKNOWN,LANG_ENGLISH+SUBLANG_DEFAULT,0,\
 	      'FileDescription','flat assembler',\
-	      'LegalCopyright',<'Copyright ',0A9h,' 1999-2017 Tomasz Grysztar.'>,\
+	      'LegalCopyright',<'Copyright ',0A9h,' 1999-2018 Tomasz Grysztar.'>,\
 	      'FileVersion',IDE_VERSION_STRING,\
 	      'ProductVersion',VERSION_STRING,\
 	      'OriginalFilename','FASMW.EXE'

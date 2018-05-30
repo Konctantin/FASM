@@ -1,6 +1,6 @@
 
 ; flat assembler interface for Win32
-; Copyright (c) 1999-2017, Tomasz Grysztar.
+; Copyright (c) 1999-2018, Tomasz Grysztar.
 ; All rights reserved.
 
 CREATE_NEW	       = 1
@@ -187,6 +187,9 @@ lseek:
 	push	edx
 	push	ebx
 	call	[SetFilePointer]
+	cmp	eax,-1
+	je	file_error
+	clc
 	ret
 
 display_string:
