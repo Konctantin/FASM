@@ -1482,10 +1482,10 @@ TVIS_USERMASK	    = 0F000h
 
 ; Tree view predefined item values
 
-TVI_ROOT  = 0FFFF0000h
-TVI_FIRST = 0FFFF0001h
-TVI_LAST  = 0FFFF0002h
-TVI_SORT  = 0FFFF0003h
+TVI_ROOT  = -10000h
+TVI_FIRST = -0FFFFh
+TVI_LAST  = -0FFFEh
+TVI_SORT  = -0FFFDh
 
 ; Tree view messages
 

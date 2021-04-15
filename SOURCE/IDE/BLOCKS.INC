@@ -137,7 +137,8 @@ insert_block:
 	push	[caret_line_number]
 	xor	ebx,ebx
 	call	break_line
-	pop	[caret_line_number] ebx esi
+	pop	[caret_line_number]
+	pop	ebx esi
 	push	[caret_line]
 	mov	[caret_line],ebx
     go_to_end_of_first_line:
@@ -324,7 +325,8 @@ delete_block:
     block_deleted:
 	retn
     clear_block:
-	push	[caret_line] [caret_position]
+	push	[caret_line]
+	push	[caret_position]
     clear_lines:
 	call	clear_rest_of_line
 	mov	[caret_line],esi
@@ -333,7 +335,8 @@ delete_block:
 	jne	clear_lines
 	mov	ecx,[selection_position]
 	call	clear_in_line
-	pop	[caret_position] [caret_line]
+	pop	[caret_position]
+	pop	[caret_line]
 	retn
     delete_vertical_block:
 	push	[caret_line]

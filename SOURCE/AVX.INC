@@ -1,6 +1,6 @@
 
 ; flat assembler core
-; Copyright (c) 1999-2018, Tomasz Grysztar.
+; Copyright (c) 1999-2021, Tomasz Grysztar.
 ; All rights reserved.
 
 avx_single_source_pd_instruction_er_evex:
@@ -92,9 +92,13 @@ avx_q_instruction_38_w1_evex:
 avx_q_instruction_38_w1:
 	or	[rex_prefix],8
 	jmp	avx_q_instruction_38
+avx_q_instruction_3a_imm8_w1:
+	or	[rex_prefix],8
+	jmp	avx_q_instruction_3a_imm8
 avx_q_instruction_3a_imm8_evex:
-	mov	[immediate_size],1
 	or	[vex_required],8
+avx_q_instruction_3a_imm8:
+	mov	[immediate_size],1
 	mov	[supplemental_code],al
 	mov	al,3Ah
 	jmp	avx_q_instruction
@@ -104,6 +108,8 @@ avx_q_instruction:
 	or	[rex_prefix],80h
 	mov	ch,8
 	jmp	avx_pi_instruction
+avx_single_source_d_instruction_38_evex_w1:
+	or	[rex_prefix],8
 avx_single_source_d_instruction_38_evex:
 	or	[vex_required],8
 avx_single_source_d_instruction_38:
@@ -130,6 +136,14 @@ avx_d_instruction_evex:
 avx_d_instruction:
 	mov	ch,4
 	jmp	avx_pi_instruction
+avx_bw_instruction_3a_imm8_w1_evex:
+	or	[rex_prefix],8
+avx_bw_instruction_3a_imm8_evex:
+	mov	[immediate_size],1
+	or	[vex_required],8
+	mov	[supplemental_code],al
+	mov	al,3Ah
+	jmp	avx_bw_instruction
 avx_single_source_bw_instruction_38:
 	or	[operand_flags],2
 avx_bw_instruction_38:
@@ -396,9 +410,9 @@ avx_instruction:
 	shr	ah,4
 	cmp	ah,5
 	jne	invalid_operand
+	and	al,111b
 	or	al,al
 	jz	invalid_operand
-	and	al,111b
 	mov	[mask_register],al
 	or	[vex_required],20h
 	lods	byte [esi]
@@ -424,6 +438,8 @@ avx_instruction:
       take_avx512_rounding:
 	test	[operand_flags],4+8
 	jz	avx512_rounding_done
+	test	[operand_flags],8
+	jz	avx512_rounding_allowed
 	cmp	[mmx_size],0
 	jne	avx512_rounding_allowed
 	cmp	[operand_size],64
@@ -435,9 +451,10 @@ avx_instruction:
 	jne	avx512_rounding_done
 	add	esi,2
 	mov	[rounding_mode],0
-	or	[vex_required],40h+80h
+	or	[vex_required],40h
 	test	[operand_flags],8
 	jz	take_sae
+	or	[vex_required],80h
 	lods	byte [esi]
 	cmp	al,1Fh
 	jne	invalid_operand
@@ -937,10 +954,14 @@ avx_pi_instruction_3a_imm8:
 avx_pclmulqdq_instruction:
 	mov	byte [value],al
 	mov	[immediate_size],-4
-	or	[vex_required],2
-	mov	cl,16
+	xor	cl,cl
 	mov	al,44h
+	or	[operand_flags],10h
 	jmp	avx_instruction_3a
+avx_instruction_38_nomask:
+	or	[operand_flags],10h
+	xor	cl,cl
+	jmp	avx_instruction_38
 
 avx512_single_source_pd_instruction_sae_imm8:
 	or	[operand_flags],2
@@ -1410,9 +1431,9 @@ vzeroupper_instruction:
 	and	[displacement_compression],0
 	call	store_vex_instruction_code
 	jmp	instruction_assembled
-vldmxcsr_instruction:
+vstmxcsr_instruction:
 	or	[vex_required],2
-	jmp	fxsave_instruction
+	jmp	stmxcsr_instruction
 
 avx_perm2f128_instruction:
 	or	[vex_required],2
@@ -3091,6 +3112,40 @@ xop_shift_instruction:
 	mov	[xop_opcode_map],8
 	dec	esi
 	jmp	mmx_imm8
+
+avx512_4vnniw_instruction:
+	mov	[opcode_prefix],0F2h
+	mov	[base_code],0Fh
+	mov	[extended_code],38h
+	mov	[supplemental_code],al
+	mov	[mmx_size],16
+	mov	[broadcast_size],0
+	or	[vex_required],8
+	call	take_avx_register
+	mov	[postbyte_register],al
+	call	take_avx512_mask
+	lods	byte [esi]
+	cmp	al,','
+	jne	invalid_operand
+	call	take_avx_register
+	mov	[vex_register],al
+	cmp	byte [esi],'+'
+	jne	reg4_ok
+	inc	esi
+	cmp	dword [esi],29030128h
+	jne	invalid_operand
+	lods	dword [esi]
+      reg4_ok:
+	cmp	[operand_size],64
+	jne	invalid_operand_size
+	mov	[operand_size],0
+	lods	byte [esi]
+	cmp	al,','
+	jne	invalid_operand
+	call	take_avx_rm
+	jc	invalid_operand
+	mov	[operand_size],64
+	jmp	instruction_ready
 
 set_evex_mode:
 	mov	[evex_mode],al

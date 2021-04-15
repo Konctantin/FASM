@@ -10,6 +10,8 @@ SEGMENT_DATA_LENGTH   = SEGMENT_LENGTH - SEGMENT_HEADER_LENGTH
 
 include '../version.inc'
 
+WM_MOUSEHWHEEL = 0x0000020E
+
 proc FlatEditor hwnd,wmsg,wparam,lparam
 
  locals
@@ -150,6 +152,8 @@ proc FlatEditor hwnd,wmsg,wparam,lparam
 	je	wm_lbuttondblclk
 	cmp	eax,WM_MOUSEWHEEL
 	je	wm_mousewheel
+	cmp	eax,WM_MOUSEHWHEEL
+	je	wm_mousehwheel
 	cmp	eax,WM_RBUTTONDOWN
 	je	wm_rbuttondown
 	cmp	eax,WM_COPY
@@ -636,11 +640,6 @@ wm_mousewheel:
 	jnz	time_scroll
     space_scroll:
 	mov	esi,[window_line]
-	mov	eax,[wparam]
-	sar	eax,16
-	cdq
-	mov	ecx,120
-	idiv	ecx
 	mov	ecx,[wheel_scroll_lines]
 	cmp	ecx,-1
 	jne	calculate_scroll
@@ -652,7 +651,12 @@ wm_mousewheel:
 	pop	eax
 	mov	ecx,[sc.nPage]
     calculate_scroll:
-	imul	ecx,eax
+	mov	eax,[wparam]
+	sar	eax,16
+	imul	ecx
+	mov	ecx,120
+	idiv	ecx
+	mov	ecx,eax
 	cmp	ecx,0
 	jg	scrolling_up
 	neg	ecx
@@ -688,6 +692,14 @@ wm_mousewheel:
 	call	create_caret
 	mov	[last_operation],0
 	jmp	text_changed
+wm_mousehwheel:
+	lea	eax,[sc]
+	invoke	GetScrollInfo,[hwnd],SB_HORZ,eax
+	mov	esi,[window_line]
+	cmp	[wparam],0
+	jl	hscroll_left
+	jg	hscroll_right
+	jmp	done
 wm_size:
 	call	update_positions
 	mov	eax,[screen_width]

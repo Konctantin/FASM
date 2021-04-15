@@ -1,6 +1,6 @@
 
 ; flat assembler core
-; Copyright (c) 1999-2018, Tomasz Grysztar.
+; Copyright (c) 1999-2021, Tomasz Grysztar.
 ; All rights reserved.
 
 formatter:
@@ -1396,7 +1396,7 @@ pe_entry:
 	je	pe_entry_ok
 	call	recoverable_invalid_address
       pe_entry_ok:
-      cdq
+	cdq
 	test	[format_flags],4
 	jnz	pe64_entry_type_ok
 	mov	edx,[code_start]
@@ -2923,7 +2923,11 @@ format_elf:
 	mov	byte [edx+28h],34h
 	mov	byte [edx+2Eh],28h
 	mov	[code_type],32
+	mov	byte [edx+10h],2
 	cmp	word [esi],1D19h
+	je	format_elf_exe
+	mov	byte [edx+10h],3
+	cmp	word [esi],021Eh
 	je	format_elf_exe
       elf_header_ok:
 	mov	byte [edx+10h],1
@@ -2972,9 +2976,13 @@ format_elf:
 	mov	byte [edx+34h],40h
 	mov	byte [edx+3Ah],40h
 	mov	[code_type],64
+	mov	byte [edx+10h],2
 	cmp	word [esi],1D19h
-	jne	elf_header_ok
-	jmp	format_elf64_exe
+	je	format_elf64_exe
+	mov	byte [edx+10h],3
+	cmp	word [esi],021Eh
+	je	format_elf64_exe
+	jmp	elf_header_ok
 elf_section:
 	bt	[format_flags],0
 	jc	illegal_instruction
@@ -3055,6 +3063,8 @@ elf_section:
 	mov	byte [ebx+10h],8
 	jmp	instruction_assembled
 mark_elf_relocation:
+	test	[format_flags],1
+	jnz	invalid_use_of_symbol
 	push	ebx
 	mov	ebx,[addressing_space]
 	cmp	[value_type],3
@@ -3702,7 +3712,6 @@ format_elf_exe:
 	mov	[image_base],eax
 	pop	edx
       elf_exe_base_ok:
-	mov	byte [edx+10h],2
 	mov	byte [edx+2Ah],20h
 	mov	ebx,edi
 	mov	ecx,20h shr 2
@@ -3716,33 +3725,24 @@ format_elf_exe:
 	mov	byte [ebx],1
 	mov	word [ebx+1Ch],1000h
 	mov	byte [ebx+18h],111b
+	mov	ebp,[image_base]
+	and	dword [ebx+4],0
+	mov	[ebx+8],ebp
+	mov	[ebx+0Ch],ebp
 	mov	eax,edi
-	xor	ebp,ebp
-	xor	cl,cl
 	sub	eax,[code_start]
-	sbb	ebp,0
-	sbb	cl,0
-	mov	[ebx+4],eax
-	add	eax,[image_base]
-	adc	ebp,0
-	adc	cl,0
-	mov	[ebx+8],eax
-	mov	[ebx+0Ch],eax
+	add	eax,ebp
 	mov	[edx+18h],eax
-	not	eax
-	not	ebp
-	not	cl
-	add	eax,1
-	adc	ebp,0
-	adc	cl,0
-	add	eax,edi
-	adc	ebp,0
-	adc	cl,0
-	mov	edx,ebp
+	and	[image_base_high],0
       elf_exe_addressing_setup:
-	push	eax
 	call	init_addressing_space
-	pop	eax
+	call	setup_elf_exe_labels_type
+	mov	eax,[code_start]
+	xor	edx,edx
+	xor	cl,cl
+	sub	eax,[image_base]
+	sbb	edx,[image_base_high]
+	sbb	cl,0
 	mov	[ebx],eax
 	mov	[ebx+4],edx
 	mov	[ebx+8],cl
@@ -3780,7 +3780,6 @@ format_elf_exe:
 	mov	[image_base_high],edx
 	pop	edx
       elf64_exe_base_ok:
-	mov	byte [edx+10h],2
 	mov	byte [edx+36h],38h
 	mov	ebx,edi
 	mov	ecx,38h shr 2
@@ -3794,32 +3793,30 @@ format_elf_exe:
 	mov	byte [ebx],1
 	mov	word [ebx+30h],1000h
 	mov	byte [ebx+4],111b
-	push	edx
+	mov	ebp,[image_base]
+	mov	ecx,[image_base_high]
+	and	dword [ebx+8],0
+	mov	[ebx+10h],ebp
+	mov	[ebx+10h+4],ecx
+	mov	[ebx+18h],ebp
+	mov	[ebx+18h+4],ecx
 	mov	eax,edi
 	sub	eax,[code_start]
-	mov	[ebx+8],eax
-	xor	edx,edx
-	xor	cl,cl
-	add	eax,[image_base]
-	adc	edx,[image_base_high]
-	adc	cl,0
-	mov	[ebx+10h],eax
-	mov	[ebx+10h+4],edx
-	mov	[ebx+18h],eax
-	mov	[ebx+18h+4],edx
-	pop	ebx
-	mov	[ebx+18h],eax
-	mov	[ebx+18h+4],edx
-	not	eax
-	not	edx
-	not	cl
-	add	eax,1
-	adc	edx,0
-	adc	cl,0
-	add	eax,edi
-	adc	edx,0
-	adc	cl,0
+	add	eax,ebp
+	adc	ecx,0
+	mov	[edx+18h],eax
+	mov	[edx+18h+4],ecx
 	jmp	elf_exe_addressing_setup
+      setup_elf_exe_labels_type:
+	mov	eax,[code_start]
+	cmp	byte [eax+10h],3
+	jne	elf_exe_labels_type_ok
+	mov	byte [ebx+9],2
+	test	[format_flags],8
+	jz	elf_exe_labels_type_ok
+	mov	byte [ebx+9],4
+      elf_exe_labels_type_ok:
+	ret
 elf_entry:
 	lods	byte [esi]
 	cmp	al,'('
@@ -3829,15 +3826,11 @@ elf_entry:
 	test	[format_flags],8
 	jnz	elf64_entry
 	call	get_dword_value
-	cmp	[value_type],0
-	jne	invalid_use_of_symbol
 	mov	edx,[code_start]
 	mov	[edx+18h],eax
 	jmp	instruction_assembled
       elf64_entry:
 	call	get_qword_value
-	cmp	[value_type],0
-	jne	invalid_use_of_symbol
 	mov	ebx,[code_start]
 	mov	[ebx+18h],eax
 	mov	[ebx+1Ch],edx
@@ -3850,6 +3843,7 @@ elf_segment:
 	call	close_elf_segment
 	push	eax
 	call	create_addressing_space
+	call	setup_elf_exe_labels_type
 	mov	ebp,ebx
 	mov	ebx,[number_of_sections]
 	shl	ebx,5
@@ -3859,15 +3853,10 @@ elf_segment:
 	jb	new_elf_segment
 	mov	ebx,[symbols_stream]
 	sub	ebx,20h
-	push	edi
-	mov	edi,ebx
-	mov	ecx,20h shr 2
-	xor	eax,eax
-	rep	stos dword [edi]
-	pop	edi
 	or	[next_pass_needed],-1
       new_elf_segment:
 	mov	byte [ebx],1
+	and	dword [ebx+18h],0
 	mov	word [ebx+1Ch],1000h
       elf_segment_flags:
 	cmp	byte [esi],1Eh
@@ -3913,16 +3902,21 @@ elf_segment:
 	or	dword [ebx],6474E500h
 	jmp	elf_segment_flags
       elf_segment_flags_ok:
+	pop	edx
+	cmp	byte [ebx],1
+	jne	no_elf_segment_merging
+	cmp	[merge_segment],0
+	jne	merge_elf_segment
+      no_elf_segment_merging:
 	mov	eax,edi
 	sub	eax,[code_start]
 	mov	[ebx+4],eax
-	pop	edx
 	and	eax,0FFFh
-	add	edx,eax
-	mov	[ebx+8],edx
-	mov	[ebx+0Ch],edx
-	mov	eax,edx
+	add	eax,edx
+	mov	[ebx+8],eax
+	mov	[ebx+0Ch],eax
 	xor	edx,edx
+      elf_segment_addressing_setup:
 	xor	cl,cl
 	not	eax
 	not	edx
@@ -3933,27 +3927,41 @@ elf_segment:
 	add	eax,edi
 	adc	edx,0
 	adc	cl,0
-      elf_segment_addressing_setup:
 	mov	[ds:ebp],eax
 	mov	[ds:ebp+4],edx
 	mov	[ds:ebp+8],cl
 	inc	[number_of_sections]
 	jmp	instruction_assembled
+      merge_elf_segment:
+	xor	ecx,ecx
+	xchg	ecx,[merge_segment]
+	cmp	ecx,-1
+	je	merge_elf_header
+	mov	eax,[ecx+8]
+	mov	ecx,[ecx+4]
+      elf_segment_separated_base:
+	mov	[ebx+8],eax
+	mov	[ebx+0Ch],eax
+	mov	[ebx+4],ecx
+	sub	eax,ecx
+	add	eax,edi
+	sub	eax,[code_start]
+	xor	edx,edx
+	jmp	elf_segment_addressing_setup
+      merge_elf_header:
+	mov	eax,[image_base]
+	xor	ecx,ecx
+	jmp	elf_segment_separated_base
       close_elf_segment:
 	cmp	[number_of_sections],0
 	jne	finish_elf_segment
 	cmp	edi,[symbols_stream]
 	jne	first_elf_segment_ok
-	push	edi
-	mov	edi,[code_start]
-	add	edi,34h
-	mov	ecx,20h shr 2
-	xor	eax,eax
-	rep	stos dword [edi]
-	pop	edi
+	or	[merge_segment],-1
 	mov	eax,[image_base]
 	ret
       first_elf_segment_ok:
+	and	[merge_segment],0
 	inc	[number_of_sections]
       finish_elf_segment:
 	mov	ebx,[number_of_sections]
@@ -3967,6 +3975,8 @@ elf_segment:
 	mov	edx,edi
 	cmp	edi,[undefined_data_end]
 	jne	elf_segment_size_ok
+	cmp	byte [ebx],1
+	jne	elf_segment_size_ok
 	mov	edi,[undefined_data_start]
       elf_segment_size_ok:
 	mov	[ebx+14h],eax
@@ -3976,7 +3986,18 @@ elf_segment:
 	and	[undefined_data_end],0
 	mov	eax,[ebx+8]
 	cmp	byte [ebx],1
-	jne	elf_segment_position_ok
+	je	elf_segment_position_move_and_align
+	cmp	[merge_segment],0
+	jne	elf_segment_position_move
+	cmp	byte [ebx],4
+	je	elf_segment_position_ok
+	cmp	byte [ebx],51h
+	je	elf_segment_position_ok
+	mov	[merge_segment],ebx
+      elf_segment_position_move:
+	add	eax,[ebx+14h]
+	jmp	elf_segment_position_ok
+      elf_segment_position_move_and_align:
 	add	eax,[ebx+14h]
 	add	eax,0FFFh
       elf_segment_position_ok:
@@ -3986,6 +4007,7 @@ elf_segment:
 	call	close_elf64_segment
 	push	eax edx
 	call	create_addressing_space
+	call	setup_elf_exe_labels_type
 	mov	ebp,ebx
 	mov	ebx,[number_of_sections]
 	imul	ebx,38h
@@ -3993,17 +4015,10 @@ elf_segment:
 	add	ebx,40h
 	cmp	ebx,[symbols_stream]
 	jb	new_elf64_segment
-	mov	ebx,[symbols_stream]
-	sub	ebx,38h
-	push	edi
-	mov	edi,ebx
-	mov	ecx,38h shr 2
-	xor	eax,eax
-	rep	stos dword [edi]
-	pop	edi
 	or	[next_pass_needed],-1
       new_elf64_segment:
 	mov	byte [ebx],1
+	and	dword [ebx+4],0
 	mov	word [ebx+30h],1000h
       elf64_segment_flags:
 	cmp	byte [esi],1Eh
@@ -4049,10 +4064,15 @@ elf_segment:
 	or	dword [ebx],6474E500h
 	jmp	elf64_segment_flags
       elf64_segment_flags_ok:
+	pop	edx eax
+	cmp	byte [ebx],1
+	jne	no_elf64_segment_merging
+	cmp	[merge_segment],0
+	jne	merge_elf64_segment
+      no_elf64_segment_merging:
 	mov	ecx,edi
 	sub	ecx,[code_start]
 	mov	[ebx+8],ecx
-	pop	edx eax
 	and	ecx,0FFFh
 	add	eax,ecx
 	adc	edx,0
@@ -4060,33 +4080,43 @@ elf_segment:
 	mov	[ebx+10h+4],edx
 	mov	[ebx+18h],eax
 	mov	[ebx+18h+4],edx
-	xor	cl,cl
-	not	eax
-	not	edx
-	not	cl
-	add	eax,1
-	adc	edx,0
-	adc	cl,0
-	add	eax,edi
-	adc	edx,0
-	adc	cl,0
 	jmp	elf_segment_addressing_setup
+      merge_elf64_segment:
+	xor	ecx,ecx
+	xchg	ecx,[merge_segment]
+	cmp	ecx,-1
+	je	merge_elf64_header
+	mov	eax,[ecx+10h]
+	mov	edx,[ecx+10h+4]
+	mov	ecx,[ecx+8]
+      elf64_segment_separated_base:
+	mov	[ebx+10h],eax
+	mov	[ebx+10h+4],edx
+	mov	[ebx+18h],eax
+	mov	[ebx+18h+4],edx
+	mov	[ebx+8],ecx
+	neg	ecx
+	add	ecx,edi
+	sub	ecx,[code_start]
+	add	eax,ecx
+	adc	edx,0
+	jmp	elf_segment_addressing_setup
+      merge_elf64_header:
+	mov	eax,[image_base]
+	mov	edx,[image_base_high]
+	xor	ecx,ecx
+	jmp	elf64_segment_separated_base
       close_elf64_segment:
 	cmp	[number_of_sections],0
 	jne	finish_elf64_segment
 	cmp	edi,[symbols_stream]
 	jne	first_elf64_segment_ok
-	push	edi
-	mov	edi,[code_start]
-	add	edi,40h
-	mov	ecx,38h shr 2
-	xor	eax,eax
-	rep	stos dword [edi]
-	pop	edi
+	or	[merge_segment],-1
 	mov	eax,[image_base]
 	mov	edx,[image_base_high]
 	ret
       first_elf64_segment_ok:
+	and	[merge_segment],0
 	inc	[number_of_sections]
       finish_elf64_segment:
 	mov	ebx,[number_of_sections]
@@ -4100,6 +4130,8 @@ elf_segment:
 	mov	edx,edi
 	cmp	edi,[undefined_data_end]
 	jne	elf64_segment_size_ok
+	cmp	byte [ebx],1
+	jne	elf64_segment_size_ok
 	mov	edi,[undefined_data_start]
       elf64_segment_size_ok:
 	mov	[ebx+28h],eax
@@ -4110,7 +4142,19 @@ elf_segment:
 	mov	eax,[ebx+10h]
 	mov	edx,[ebx+10h+4]
 	cmp	byte [ebx],1
-	jne	elf64_segment_position_ok
+	je	elf64_segment_position_move_and_align
+	cmp	[merge_segment],0
+	jne	elf64_segment_position_move
+	cmp	byte [ebx],4
+	je	elf64_segment_position_ok
+	cmp	byte [ebx],51h
+	je	elf64_segment_position_ok
+	mov	[merge_segment],ebx
+      elf64_segment_position_move:
+	add	eax,[ebx+28h]
+	adc	edx,0
+	jmp	elf64_segment_position_ok
+      elf64_segment_position_move_and_align:
 	add	eax,[ebx+28h]
 	adc	edx,0
 	add	eax,0FFFh

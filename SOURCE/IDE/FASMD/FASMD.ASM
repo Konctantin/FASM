@@ -1,6 +1,6 @@
 
 ; flat assembler IDE for DOS/DPMI
-; Copyright (c) 1999-2018, Tomasz Grysztar.
+; Copyright (c) 1999-2021, Tomasz Grysztar.
 ; All rights reserved.
 
 	format	MZ
@@ -428,6 +428,8 @@ segment main use32
 	je	build_symbols
 	cmp	ah,5Ch
 	je	assign_to_compiler
+	cmp	ah,59h
+	je	toggle_readonly
 	cmp	ah,63h
 	je	calculator
 	cmp	ah,6Ch
@@ -903,6 +905,9 @@ segment main use32
 	call	clear_undo_data
 	or	[editor_mode],FEMODE_NOUNDO
 	jmp	operation_done
+  toggle_readonly:
+	xor	[editor_mode],FEMODE_READONLY
+	jmp	main_loop
   select_all:
 	or	eax,-1
 	call	find_line
@@ -1816,7 +1821,8 @@ segment main use32
 	ret
 
   load_file:
-	push	edx [editor_memory]
+	push	edx
+	push	[editor_memory]
 	call	get_full_pathname
 	push	esi
 	call	flush_editor_data
@@ -5942,8 +5948,11 @@ segment main use32
 ; File operations
 
   dos_int:
-	push	0 0 0
-	pushw	buffer_segment buffer_segment
+	push	0
+	push	0
+	push	0
+	pushw	buffer_segment
+	pushw	buffer_segment
 	stc
 	pushfw
 	push	eax
@@ -5969,9 +5978,9 @@ segment main use32
 	mov	edx,[esp+14h]
 	mov	ecx,[esp+18h]
 	mov	ah,[esp+20h]
-	add	esp,32h
 	sahf
-	mov	eax,[esp-32h+1Ch]
+	mov	eax,[esp+1Ch]
+	lea	esp,[esp+32h]
 	ret
   open:
 	push	esi edi
@@ -6472,7 +6481,7 @@ segment main use32
 ; String constants
 
   _caption db 'flat assembler ',VERSION_STRING,0
-  _copyright db 'Copyright (c) 1999-2018, Tomasz Grysztar',0
+  _copyright db 'Copyright (c) 1999-2021, Tomasz Grysztar',0
 
   _null db 0
   _untitled db 'Untitled',0

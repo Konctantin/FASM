@@ -1,6 +1,6 @@
 
 ; flat assembler core
-; Copyright (c) 1999-2018, Tomasz Grysztar.
+; Copyright (c) 1999-2021, Tomasz Grysztar.
 ; All rights reserved.
 
 calculate_expression:
@@ -208,9 +208,32 @@ calculate_expression:
 	cmp	al,[operand_size]
 	jne	operand_sizes_do_not_match
 	jmp	calculation_loop
+      actual_file_offset_label:
+	mov	eax,[undefined_data_end]
+	mov	ebp,[addressing_space]
+	test	byte [ds:ebp+0Ah],1
+	jnz	use_undefined_data_offset
+	cmp	eax,[current_offset]
+	jne	use_current_offset
+       use_undefined_data_offset:
+	mov	eax,[undefined_data_start]
+	jmp	make_file_offset_label
+      current_file_offset_label:
+	mov	ebp,[addressing_space]
+	test	byte [ds:ebp+0Ah],1
+	jz	use_current_offset
+	mov	eax,[undefined_data_end]
+	jmp	make_file_offset_label
+       use_current_offset:
+	mov	eax,[current_offset]
+       make_file_offset_label:
+	cmp	[output_format],2
+	jae	invalid_use_of_symbol
+	sub	eax,[code_start]
+	jmp	make_dword_label_value
       current_offset_label:
 	mov	eax,[current_offset]
-      make_current_offset_label:
+       make_current_offset_label:
 	xor	edx,edx
 	xor	ch,ch
 	mov	ebp,[addressing_space]
@@ -219,7 +242,7 @@ calculate_expression:
 	sbb	ch,[ds:ebp+8]
 	jp	current_offset_label_ok
 	call	recoverable_overflow
-      current_offset_label_ok:
+       current_offset_label_ok:
 	stos	dword [edi]
 	mov	eax,edx
 	stos	dword [edi]
@@ -260,6 +283,10 @@ calculate_expression:
 	je	timestamp_label
 	cmp	eax,3
 	je	org_origin_label
+	cmp	eax,4
+	je	current_file_offset_label
+	cmp	eax,5
+	je	actual_file_offset_label
 	mov	edx,invalid_value
 	jmp	error_undefined
       label_out_of_scope:
@@ -846,7 +873,9 @@ calculate_expression:
 	mov	eax,[eax+30h]
 	jmp	finish_rva
       calculate_gotoff:
-	test	[format_flags],8+1
+	test	[format_flags],1
+	jnz	calculate_elf_dyn_rva
+	test	[format_flags],8
 	jnz	invalid_expression
       calculate_coff_rva:
 	mov	dl,5
@@ -858,6 +887,11 @@ calculate_expression:
 	mov	byte [edi+12],dl
 	add	edi,14h
 	jmp	calculation_loop
+      calculate_elf_dyn_rva:
+	xor	dl,dl
+	test	byte [edi+12],1
+	jnz	incorrect_change_of_value_type
+	jmp	change_value_type
       calculate_plt:
 	cmp	word [edi+8],0
 	jne	invalid_expression
@@ -1829,6 +1863,8 @@ calculate_logical_expression:
 	je	invalid_expression
 	cmp	al,88h
 	je	check_for_defined
+	cmp	al,8Ah
+	je	check_for_earlier_defined
 	cmp	al,89h
 	je	check_for_used
 	cmp	al,'0'
@@ -1839,7 +1875,9 @@ calculate_logical_expression:
 	jne	invalid_value
 	call	get_value_for_comparison
 	mov	bh,[value_sign]
-	push	eax edx [symbol_identifier] ebx ecx
+	push	eax edx
+	push	[symbol_identifier]
+	push	ebx ecx
 	mov	al,[esi]
 	or	al,al
 	jz	logical_number
@@ -1974,7 +2012,12 @@ calculate_logical_expression:
 	or	eax,edx
 	jnz	return_true
 	jmp	return_false
+      check_for_earlier_defined:
+	or	bh,-1
+	jmp	check_if_expression_defined
       check_for_defined:
+	xor	bh,bh
+      check_if_expression_defined:
 	or	bl,-1
 	lods	word [esi]
 	cmp	ah,'('
@@ -2018,6 +2061,8 @@ calculate_logical_expression:
 	cmp	eax,0Fh
 	jb	check_expression
 	je	reserved_word_used_as_symbol
+	test	bh,bh
+	jnz	no_prediction
 	test	byte [eax+8],4
 	jnz	no_prediction
 	test	byte [eax+8],1

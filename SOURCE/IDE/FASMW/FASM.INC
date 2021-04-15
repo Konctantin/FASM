@@ -1,26 +1,28 @@
 
 ; flat assembler interface for Win32 IDE
-; Copyright (c) 1999-2018, Tomasz Grysztar.
+; Copyright (c) 1999-2021, Tomasz Grysztar.
 ; All rights reserved.
 
 flat_assembler:
 
 	mov	[initial_definitions],0
 	mov	edx,[esp+4]
-	mov	[input_file],edx
 	invoke	GetFullPathName,edx,1000h,path_buffer,param_buffer
 	or	eax,eax
 	jz	exit_program
-	mov	edi,[param_buffer]
-	mov	byte [edi-1],0
+	mov	esi,path_buffer
+	mov	[input_file],esi
 	mov	[symbols_file],0
 	test	[command_flags],2
 	jz	symbols_file_name_ok
+	mov	edi,path_buffer+1000h
 	mov	[symbols_file],edi
 	mov	ecx,eax
-	add	ecx,path_buffer
-	sub	ecx,edi
-	lea	edi,[edi+ecx-1]
+	rep	movsb
+	mov	ecx,eax
+	xor	al,al
+	stosb
+	sub	edi,2
 	mov	ebx,edi
 	mov	al,'.'
 	std
@@ -35,8 +37,8 @@ flat_assembler:
 	xor	al,al
 	stosb
       symbols_file_name_ok:
-	invoke	SetCurrentDirectory,path_buffer
 	mov	[hfile],0
+
 	invoke	GlobalAlloc,GMEM_MOVEABLE,1
 	mov	[hmem_display],eax
 	invoke	GlobalLock,[hmem_display]

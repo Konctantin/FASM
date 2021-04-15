@@ -2,6 +2,146 @@
 Visit http://flatassembler.net/ for more information.
 
 
+version 1.73.27 (Jan 27, 2021)
+
+[-] The assembler should no longer prematurely abort when sign-extended 32-bit
+    value in 64-bit instruction overflows during intermediate passes.
+
+
+version 1.73.26 (Jan 26, 2021)
+
+[-] Corrected assembly of some "mov" variants when "use32" setting is used
+    with 64-bit relocatable formats.
+
+
+version 1.73.25 (Aug 20, 2020)
+
+[-] Corrected operand size handling for "vldmxcsr"/"vstmxcsr" instructions.
+
+
+version 1.73.24 (Apr 29, 2020)
+
+[+] Added "invlpgb" and "tlbsync" instructions.
+
+[-] Upper bits of default entry point of ELF64 executable were not correctly
+    stored in the header.
+
+
+version 1.73.23 (Apr 09, 2020)
+
+[+] Added "psmash", "pvalidate", "rmpadjust" and "rmpupdate" instructions.
+
+[-] No longer allowing "mov" to/from CR9-CR15 outside of long mode.
+
+
+version 1.73.22 (Feb 09, 2020)
+
+[-] Removed a trick from preprocessor's implementation that caused
+    the x64 version to crash when replacing symbolic constant in a label.
+
+
+version 1.73.21 (Dec 05, 2019)
+
+[+] Added "$%" and "$%%" symbols, and output offset addressing with "load"
+    and "store" directives (backported from flat assembler g).
+    It can be used only with binary output format.
+
+[+] Added VAES and VPCMULQDQ instruction set extensions.
+
+[+] Added "pconfig" instruction.
+
+
+version 1.73.20 (Nov 29, 2019)
+
+[-] Fixed a bug in "cmpxchg" and "xadd" introduced by previous version.
+
+
+version 1.73.19 (Nov 27, 2019)
+
+[+] Added AVX512_BITALG, AVX512_VPOPCNTDQ, AVX512_VBMI2, AVX512_VNNI
+    and AVX512_4VNNIW instruction sets.
+
+[+] Added CET_SS and CET_IBT instruction sets.
+
+[+] Added "ptwrite" instruction.
+
+
+version 1.73.18 (Nov 13, 2019)
+
+[-] Addresses prefixed with "fs:" or "gs:" are no longer RIP-relative by default.
+
+
+version 1.73.17 (Nov 10, 2019)
+
+[+] Added "mcommit" instruction.
+
+
+version 1.73.16 (Aug 04, 2019)
+
+[-] Corrected a mistake in AVX-512 mask parsing that led to "{k0}" mask being
+    erroneously accepted.
+
+
+version 1.73.15 (Aug 01, 2019)
+
+[+] Added "movdiri", "movdir64b" instructions and GFNI instruction set.
+
+
+version 1.73.14 (Jul 30, 2019)
+
+[+] Added "rdpru" and "wbnoinvd" instructions.
+
+
+version 1.73.13 (Jul 14, 2019)
+
+[-] Corrections in 64-bit Linux interface.
+
+
+version 1.73.12 (May 19, 2019)
+
+[-] Implied memory size allowed for 16-bit "movzx"/"movsx".
+
+
+version 1.73.11 (Apr 19, 2019)
+
+[+] Added "definite" operator.
+
+
+version 1.73.10 (Apr 05, 2019)
+
+[+] Added "cldemote", "tpause", "umonitor" and "umwait" instructions.
+
+
+version 1.73.09 (Feb 17, 2019)
+
+[-] Fixed a bug in AVX-512 instruction encoding with "{sae}" modifier.
+
+
+version 1.73.08 (Jan 31, 2019)
+
+[-] Fixed a bug in "align" directive for "dynamic" variant of ELF executable.
+
+
+version 1.73.07 (Jan 30, 2019)
+
+[+] Added "dynamic" variant of ELF executable.
+
+[+] Added "gnurelro" segment type for ELF executable.
+
+
+version 1.73.06 (Jan 04, 2019)
+
+[+] Added "ud0" and "ud1" instruction.
+
+[-] Fixed a minor bug in ELF formatter.
+
+
+version 1.73.05 (Jan 03, 2019)
+
+[-] Segments in ELF executable format automatically expanded to cover headers
+    and dynamic linking information.
+
+
 version 1.73.04 (Apr 30, 2018)
 
 [-] Fixed a bug in "bndstx"/"bndldx" special address syntax processing.

@@ -1,6 +1,6 @@
 
 ; flat assembler IDE for Win32
-; Copyright (c) 1999-2018, Tomasz Grysztar.
+; Copyright (c) 1999-2021, Tomasz Grysztar.
 ; All rights reserved.
 
 format PE GUI 4.0 large NX
@@ -12,7 +12,7 @@ include 'fedit.ash'
 
 include '..\..\version.inc'
 
-IDE_VERSION_STRING equ "0.99.00"
+IDE_VERSION_STRING equ "0.99.09"
 
 struct EDITITEM
   header      TC_ITEMHEADER
@@ -45,6 +45,9 @@ ends
 
 HH_DISPLAY_TOPIC  = 0
 HH_KEYWORD_LOOKUP = 0Dh
+
+CP_ARGUMENTS = 0
+CP_DIRECTORY = 1
 
 section '.data' data readable writeable
 
@@ -176,7 +179,7 @@ section '.data' data readable writeable
 	       db 0
   preview_selection dd 1,5,1,6
 
-  asm_filter db 'Assembler files',0,'*.ASM;*.INC;*.ASH',0
+  asm_filter db 'Assembly files',0,'*.ASM;*.INC;*.ASH',0
 	     db 'All files',0,'*.*',0
 	     db 0
 
@@ -214,6 +217,7 @@ section '.data' data readable writeable
   hfile dd ?
   mutex dd ?
 
+  instance_flags dd ?
   command_flags dd ?
   search_settings dd ?
   replaces_count dd ?
@@ -365,9 +369,9 @@ include 'fedit.inc'
 	invoke	WritePrivateProfileString,_section_environment,_key_environment_include,path_buffer,ini_path
       ini_ok:
 
-	mov	[param_buffer],0
-	stdcall GetIniBit,ini_path,_section_options,_key_options_oneinstanceonly,param_buffer,1
-	cmp	[param_buffer],0
+	mov	[instance_flags],0
+	stdcall GetIniBit,ini_path,_section_options,_key_options_oneinstanceonly,instance_flags,1
+	cmp	[instance_flags],0
 	je	create_new_window
 	invoke	FindWindow,_class,NULL
 	or	eax,eax
@@ -482,6 +486,12 @@ include 'fedit.inc'
       show_existing_window:
 	invoke	ShowWindow,ebx,eax
 	invoke	SetForegroundWindow,ebx
+	invoke	GetCurrentDirectory,4000h,path_buffer
+	inc	eax
+	mov	[cp.cbData],eax
+	mov	[cp.lpData],path_buffer
+	mov	[cp.dwData],CP_DIRECTORY
+	invoke	SendMessage,ebx,WM_COPYDATA,NULL,cp
 	mov	edi,[program_arguments]
 	mov	[cp.lpData],edi
 	or	ecx,-1
@@ -489,8 +499,8 @@ include 'fedit.inc'
 	repne	scasb
 	neg	ecx
 	mov	[cp.cbData],ecx
+	mov	[cp.dwData],CP_ARGUMENTS
 	invoke	SendMessage,ebx,WM_COPYDATA,NULL,cp
-
   end_loop:
 	invoke	ExitProcess,[msg.wParam]
 
@@ -694,10 +704,18 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	je	failed
 	invoke	DragAcceptFiles,[hwnd],TRUE
 	mov	esi,[program_arguments]
+      process_arguments:
+	xor	ebx,ebx
+	ARG_ASSIGN	= 1
+	ARG_READONLY	= 2
       find_argument:
 	lodsb
 	cmp	al,20h
 	je	find_argument
+	cmp	al,'+'
+	je	argument_assign
+	cmp	al,'-'
+	je	argument_readonly
 	xor	ecx,ecx
 	cmp	al,22h
 	je	quoted_argument
@@ -716,6 +734,12 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	or	al,al
 	jz	argument_end
 	jmp	find_argument_end
+      argument_assign:
+	or	bl,ARG_ASSIGN
+	jmp	find_argument
+      argument_readonly:
+	or	bl,ARG_READONLY
+	jmp	find_argument
       quoted_argument:
 	mov	edx,esi
       find_quoted_argument_end:
@@ -734,18 +758,34 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	push	eax edx esi
 	mov	esi,edx
 	mov	edi,path_buffer
+	cmp	ecx,1000h-1
+	jae	process_next_argument
 	rep	movsb
 	xor	al,al
 	stosb
-	invoke	GetFileTitle,path_buffer,name_buffer,100h
-	invoke	SendMessage,[hwnd],FM_OPEN,name_buffer,path_buffer
+	mov	ecx,path_buffer+4000h
+	sub	ecx,edi
+	invoke	GetFullPathName,path_buffer,ecx,edi,param_buffer
+	invoke	GetFileTitle,edi,name_buffer,100h
+	mov	eax,FM_OPEN
+	test	bl,ARG_READONLY
+	jz	load_from_argument
+	mov	eax,FM_OPENREADONLY
+     load_from_argument:
+	invoke	SendMessage,[hwnd],eax,name_buffer,edi
 	cmp	eax,-1
-	jne	load_ok
+	je	loading_error
+	test	bl,ARG_ASSIGN
+	jz	process_next_argument
+	invoke	SendMessage,[hwnd_tabctrl],TCM_GETCURSEL,0,0
+	invoke	SendMessage,[hwnd],FM_ASSIGN,eax,0
+	jmp	process_next_argument
+      loading_error:
 	cinvoke wsprintf,string_buffer,_loading_error,path_buffer
 	invoke	MessageBox,[hwnd],string_buffer,_caption,MB_ICONERROR+MB_OK
-      load_ok:
+      process_next_argument:
 	pop	esi edx eax
-	jmp	find_argument
+	jmp	process_arguments
       command_line_ok:
 	xor	eax,eax
 	jmp	finish
@@ -754,8 +794,16 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	virtual at ebx
 	cmd	COPYDATASTRUCT
 	end	virtual
+	mov	eax,[cmd.dwData]
+	cmp	eax,CP_ARGUMENTS
+	je	copy_arguments
+	cmp	eax,CP_DIRECTORY
+	jne	failed
+	invoke	SetCurrentDirectory,[cmd.lpData]
+	jmp	finish
+      copy_arguments:
 	mov	esi,[cmd.lpData]
-	jmp	find_argument
+	jmp	process_arguments
   wmgetminmaxinfo:
 	mov	ebx,[lparam]
 	virtual at ebx
@@ -834,8 +882,7 @@ proc MainWindow hwnd,wmsg,wparam,lparam
       show_already_loaded:
 	invoke	SendMessage,[hwnd_tabctrl],TCM_SETCURSEL,ebx,0
 	invoke	SendMessage,[hwnd],FM_SELECT,ebx,0
-	xor	eax,eax
-	jmp	finish
+	jmp	update_fedit_mode
       load_file:
 	invoke	CreateFile,[lparam],GENERIC_READ,FILE_SHARE_READ,0,OPEN_EXISTING,0,0
 	cmp	eax,-1
@@ -849,7 +896,9 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	pop	ecx
 	jz	load_out_of_memory
 	dec	ecx
-	push	MEM_RELEASE 0 eax
+	push	MEM_RELEASE
+	push	0
+	push	eax
 	mov	byte [eax+ecx],0
 	invoke	ReadFile,ebx,eax,ecx,param_buffer,0
 	invoke	CloseHandle,ebx
@@ -887,12 +936,13 @@ proc MainWindow hwnd,wmsg,wparam,lparam
       set_fedit_text:
 	invoke	SendMessage,[hwnd_fedit],WM_SETTEXT,0,dword [esp]
 	call	[VirtualFree]
+      update_fedit_mode:
 	invoke	SendMessage,[hwnd_fedit],FEM_GETMODE,0,0
 	and	eax,not FEMODE_READONLY
 	test	[command_flags],1
-	jz	set_initial_mode
+	jz	set_fedit_mode
 	or	eax,FEMODE_READONLY
-      set_initial_mode:
+      set_fedit_mode:
 	invoke	SendMessage,[hwnd_fedit],FEM_SETMODE,eax,0
 	jmp	update_status_bar
       load_out_of_memory:
@@ -1158,6 +1208,11 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	and	eax,MF_CHECKED
 	or	eax,MF_BYCOMMAND
 	invoke	CheckMenuItem,[wparam],IDM_TIMESCROLL,eax
+	mov	eax,[instance_flags]
+	neg	al
+	and	eax,MF_CHECKED
+	or	eax,MF_BYCOMMAND
+	invoke	CheckMenuItem,[wparam],IDM_ONEINSTANCEONLY,eax
 	cmp	[help_path],0
 	sete	bl
 	neg	bl
@@ -1283,6 +1338,8 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	je	option_revivedeadkeys
 	cmp	eax,IDM_TIMESCROLL
 	je	option_timescroll
+	cmp	eax,IDM_ONEINSTANCEONLY
+	je	option_oneinstanceonly
 	cmp	eax,IDM_CALCULATOR
 	je	calculator
 	cmp	eax,IDM_CONTENTS
@@ -1657,7 +1714,10 @@ proc MainWindow hwnd,wmsg,wparam,lparam
 	mov	[sinfo.dwFlags],0
 	cmp	[output_format],3
 	ja	run_object
-	invoke	CreateProcess,path_buffer,NULL,NULL,NULL,FALSE,NORMAL_PRIORITY_CLASS,NULL,NULL,sinfo,pinfo
+	invoke	GetFullPathName,path_buffer,1000h,path_buffer+2000h,param_buffer
+	mov	edx,[param_buffer]
+	mov	byte [edx-1],0
+	invoke	CreateProcess,path_buffer,NULL,NULL,NULL,FALSE,NORMAL_PRIORITY_CLASS,NULL,path_buffer+2000h,sinfo,pinfo
 	invoke	CloseHandle,[pinfo.hThread]
 	invoke	CloseHandle,[pinfo.hProcess]
 	jmp	finish
@@ -1709,6 +1769,10 @@ proc MainWindow hwnd,wmsg,wparam,lparam
   option_timescroll:
 	xor	[fedit_style],FES_TIMESCROLL
 	jmp	update
+  option_oneinstanceonly:
+	xor	[instance_flags],1
+	stdcall WriteIniBit,ini_path,_section_options,_key_options_oneinstanceonly,[instance_flags],1
+	jmp	finish
   calculator:
 	invoke	DialogBoxParam,[hinstance],IDD_CALCULATOR,[hwnd],CalculatorDialog,0
 	jmp	finish
@@ -2912,6 +2976,10 @@ proc CompilerSetup hwnd_dlg,msg,wparam,lparam
 	xor	eax,eax
 	jmp	.finish
   .initdialog:
+	mov	[string_buffer],0
+	invoke	GetEnvironmentVariable,_key_environment_include,string_buffer,1000h
+	invoke	GetPrivateProfileString,_section_environment,_key_environment_include,string_buffer,path_buffer,4000h,ini_path
+	invoke	SetDlgItemText,[hwnd_dlg],ID_INCLUDEPATH,path_buffer
 	invoke	GetDlgItem,[hwnd_dlg],ID_MEMORY
 	stdcall AddStrings,eax,_memory_settings
 	invoke	GetDlgItem,[hwnd_dlg],ID_PRIORITY
@@ -2963,6 +3031,8 @@ proc CompilerSetup hwnd_dlg,msg,wparam,lparam
 	mov	eax,15
   .set_priority:
 	mov	[compiler_priority],eax
+	invoke	GetDlgItemText,[hwnd_dlg],ID_INCLUDEPATH,path_buffer,4000h
+	invoke	WritePrivateProfileString,_section_environment,_key_environment_include,path_buffer,ini_path
 	invoke	EndDialog,[hwnd_dlg],TRUE
 	jmp	.finish
   .close:
@@ -3209,6 +3279,7 @@ section '.idata' import data readable writeable
 	 GetCommandLine,'GetCommandLineA',\
 	 GetFileAttributes,'GetFileAttributesA',\
 	 GetFullPathName,'GetFullPathNameA',\
+	 GetCurrentDirectory,'GetCurrentDirectoryA',\
 	 SetCurrentDirectory,'SetCurrentDirectoryA',\
 	 CreateFile,'CreateFileA',\
 	 GetFileSize,'GetFileSize',\
@@ -3421,49 +3492,50 @@ section '.rsrc' resource data readable
   IDI_MAIN	    = 401
   IDB_ASSIGN	    = 501
 
-  IDM_NEW	     = 1101
-  IDM_OPEN	     = 1102
-  IDM_SAVE	     = 1103
-  IDM_SAVEAS	     = 1104
-  IDM_NEXT	     = 1105
-  IDM_PREVIOUS	     = 1106
-  IDM_OPENFOLDER     = 1107
-  IDM_CLOSE	     = 1108
-  IDM_EXIT	     = 1109
-  IDM_SELECTFILE     = 1110
-  IDM_UNDO	     = 1201
-  IDM_REDO	     = 1202
-  IDM_CUT	     = 1203
-  IDM_COPY	     = 1204
-  IDM_PASTE	     = 1205
-  IDM_DELETE	     = 1206
-  IDM_SELECTALL      = 1207
-  IDM_VERTICAL	     = 1208
-  IDM_DISCARD_UNDO   = 1209
-  IDM_READONLY	     = 1210
-  IDM_POSITION	     = 1301
-  IDM_FIND	     = 1302
-  IDM_FINDNEXT	     = 1303
-  IDM_REPLACE	     = 1304
-  IDM_RUN	     = 1401
-  IDM_COMPILE	     = 1402
-  IDM_DEBUG	     = 1403
-  IDM_SYMBOLS	     = 1404
-  IDM_ASSIGN	     = 1409
-  IDM_APPEARANCE     = 1501
-  IDM_COMPILERSETUP  = 1502
-  IDM_SECURESEL      = 1505
-  IDM_AUTOBRACKETS   = 1506
-  IDM_AUTOINDENT     = 1507
-  IDM_SMARTTABS      = 1508
-  IDM_OPTIMALFILL    = 1509
-  IDM_REVIVEDEADKEYS = 1510
-  IDM_TIMESCROLL     = 1511
-  IDM_CONTENTS	     = 1901
-  IDM_KEYWORD	     = 1902
-  IDM_PICKHELP	     = 1903
-  IDM_CALCULATOR     = 1904
-  IDM_ABOUT	     = 1909
+  IDM_NEW	      = 1101
+  IDM_OPEN	      = 1102
+  IDM_SAVE	      = 1103
+  IDM_SAVEAS	      = 1104
+  IDM_NEXT	      = 1105
+  IDM_PREVIOUS	      = 1106
+  IDM_OPENFOLDER      = 1107
+  IDM_CLOSE	      = 1108
+  IDM_EXIT	      = 1109
+  IDM_SELECTFILE      = 1110
+  IDM_UNDO	      = 1201
+  IDM_REDO	      = 1202
+  IDM_CUT	      = 1203
+  IDM_COPY	      = 1204
+  IDM_PASTE	      = 1205
+  IDM_DELETE	      = 1206
+  IDM_SELECTALL       = 1207
+  IDM_VERTICAL	      = 1208
+  IDM_DISCARD_UNDO    = 1209
+  IDM_READONLY	      = 1210
+  IDM_POSITION	      = 1301
+  IDM_FIND	      = 1302
+  IDM_FINDNEXT	      = 1303
+  IDM_REPLACE	      = 1304
+  IDM_RUN	      = 1401
+  IDM_COMPILE	      = 1402
+  IDM_DEBUG	      = 1403
+  IDM_SYMBOLS	      = 1404
+  IDM_ASSIGN	      = 1409
+  IDM_APPEARANCE      = 1501
+  IDM_COMPILERSETUP   = 1502
+  IDM_SECURESEL       = 1505
+  IDM_AUTOBRACKETS    = 1506
+  IDM_AUTOINDENT      = 1507
+  IDM_SMARTTABS       = 1508
+  IDM_OPTIMALFILL     = 1509
+  IDM_REVIVEDEADKEYS  = 1510
+  IDM_TIMESCROLL      = 1511
+  IDM_ONEINSTANCEONLY = 1512
+  IDM_CONTENTS	      = 1901
+  IDM_KEYWORD	      = 1902
+  IDM_PICKHELP	      = 1903
+  IDM_CALCULATOR      = 1904
+  IDM_ABOUT	      = 1909
 
   ID_CHANGE	   = 2001
   ID_SELECT	   = 2101
@@ -3489,6 +3561,7 @@ section '.rsrc' resource data readable
   ID_PRIORITY	   = 2305
   ID_PASSES	   = 2306
   ID_LINES	   = 2307
+  ID_INCLUDEPATH   = 2308
   ID_ICON	   = 2401
   ID_MESSAGE	   = 2402
   ID_DECSELECT	   = 2501
@@ -3542,7 +3615,8 @@ section '.rsrc' resource data readable
 		menuitem 'Smart &tabulation',IDM_SMARTTABS
 		menuitem '&Optimal fill on saving',IDM_OPTIMALFILL
 		menuitem '&Revive dead keys',IDM_REVIVEDEADKEYS
-		menuitem 'Ti&me scrolling',IDM_TIMESCROLL,MFR_END
+		menuitem 'Ti&me scrolling',IDM_TIMESCROLL
+		menuitem 'O&ne instance only',IDM_ONEINSTANCEONLY,MFR_END
        menuitem '&Help',0,MFR_POPUP + MFR_END
 		menuitem '&Contents' _ 'Alt+F1',IDM_CONTENTS
 		menuitem '&Keyword search' _ 'F1',IDM_KEYWORD
@@ -3555,11 +3629,11 @@ section '.rsrc' resource data readable
 
   menu popup_menu
        menuitem '',0,MFR_POPUP+MFR_END
-		menuitem '&Assign to compiler',IDM_ASSIGN
+		menuitem '&Assign to compiler' _ 'Shift+F9',IDM_ASSIGN
 		menuitem 'Open &folder',IDM_OPENFOLDER
-		menuitem '&Read-only mode',IDM_READONLY
+		menuitem '&Read-only mode' _ 'Shift+F6',IDM_READONLY
 		menuseparator
-		menuitem '&Close',IDM_CLOSE,MFR_END
+		menuitem '&Close' _ 'Esc',IDM_CLOSE,MFR_END
 
   accelerator main_keys,\
 	      FVIRTKEY+FNOINVERT+FCONTROL,'N',IDM_NEW,\
@@ -3583,6 +3657,7 @@ section '.rsrc' resource data readable
 	      FVIRTKEY+FNOINVERT,VK_F4,IDM_OPEN,\
 	      FVIRTKEY+FNOINVERT,VK_F3,IDM_FINDNEXT,\
 	      FVIRTKEY+FNOINVERT,VK_F5,IDM_POSITION,\
+	      FVIRTKEY+FNOINVERT+FSHIFT,VK_F6,IDM_READONLY,\
 	      FVIRTKEY+FNOINVERT,VK_F7,IDM_FIND,\
 	      FVIRTKEY+FNOINVERT+FSHIFT,VK_F7,IDM_FINDNEXT,\
 	      FVIRTKEY+FNOINVERT+FCONTROL,VK_F7,IDM_REPLACE,\
@@ -3674,13 +3749,15 @@ section '.rsrc' resource data readable
     dialogitem 'BUTTON','C&ancel',IDCANCEL,134,148,42,14,WS_VISIBLE+WS_TABSTOP+BS_PUSHBUTTON
   enddialog
 
-  dialog compiler_setup_dialog,'Compiler setup',54,28,148,44,WS_CAPTION+WS_POPUP+WS_SYSMENU+DS_MODALFRAME
-    dialogitem 'STATIC','&Memory:',-1,4,8,30,8,WS_VISIBLE+SS_RIGHT
-    dialogitem 'COMBOBOX','',ID_MEMORY,38,6,54,96,WS_VISIBLE+WS_BORDER+WS_TABSTOP+ES_NUMBER+CBS_DROPDOWN+WS_VSCROLL
-    dialogitem 'STATIC','&Priority:',-1,4,26,30,8,WS_VISIBLE+SS_RIGHT
-    dialogitem 'COMBOBOX','',ID_PRIORITY,38,24,54,96,WS_VISIBLE+WS_TABSTOP+CBS_DROPDOWNLIST+WS_VSCROLL
-    dialogitem 'BUTTON','OK',IDOK,100,6,42,14,WS_VISIBLE+WS_TABSTOP+BS_DEFPUSHBUTTON
-    dialogitem 'BUTTON','C&ancel',IDCANCEL,100,22,42,14,WS_VISIBLE+WS_TABSTOP+BS_PUSHBUTTON
+  dialog compiler_setup_dialog,'Compiler setup',54,28,200,82,WS_CAPTION+WS_POPUP+WS_SYSMENU+DS_MODALFRAME
+    dialogitem 'STATIC','&Include path(s):',-1,8,4,184,8,WS_VISIBLE+SS_LEFT
+    dialogitem 'EDIT','',ID_INCLUDEPATH,8,14,184,12,WS_VISIBLE+WS_BORDER+WS_TABSTOP+ES_AUTOHSCROLL
+    dialogitem 'STATIC','&Memory (KB):',-1,8,30,42,8,WS_VISIBLE+SS_LEFT
+    dialogitem 'COMBOBOX','',ID_MEMORY,8,40,54,96,WS_VISIBLE+WS_BORDER+WS_TABSTOP+ES_NUMBER+CBS_DROPDOWN+WS_VSCROLL
+    dialogitem 'STATIC','Thread &priority:',-1,72,30,60,8,WS_VISIBLE+SS_LEFT
+    dialogitem 'COMBOBOX','',ID_PRIORITY,72,40,54,96,WS_VISIBLE+WS_TABSTOP+CBS_DROPDOWNLIST+WS_VSCROLL
+    dialogitem 'BUTTON','OK',IDOK,104,64,42,14,WS_VISIBLE+WS_TABSTOP+BS_DEFPUSHBUTTON
+    dialogitem 'BUTTON','C&ancel',IDCANCEL,150,64,42,14,WS_VISIBLE+WS_TABSTOP+BS_PUSHBUTTON
   enddialog
 
   dialog calculator_dialog,'Calculator',48,32,380,80,WS_CAPTION+WS_POPUP+WS_SYSMENU+DS_MODALFRAME
@@ -3699,7 +3776,7 @@ section '.rsrc' resource data readable
   enddialog
 
   dialog about_dialog,'About',40,40,172,60,WS_CAPTION+WS_POPUP+WS_SYSMENU+DS_MODALFRAME
-    dialogitem 'STATIC',<'flat assembler ',2014h,' version ',VERSION_STRING,0Dh,0Ah,'Copyright ',0A9h,' 1999-2018 Tomasz Grysztar.'>,-1,27,10,144,40,WS_VISIBLE+SS_CENTER
+    dialogitem 'STATIC',<'flat assembler ',2014h,' version ',VERSION_STRING,0Dh,0Ah,'Copyright ',0A9h,' 1999-2021 Tomasz Grysztar.'>,-1,27,10,144,40,WS_VISIBLE+SS_CENTER
     dialogitem 'STATIC',IDI_MAIN,-1,8,8,32,32,WS_VISIBLE+SS_ICON
     dialogitem 'STATIC','',-1,4,34,164,11,WS_VISIBLE+SS_ETCHEDHORZ
     dialogitem 'STATIC',<'flat editor version ',FEDIT_VERSION_STRING>,-1,4,38,100,20,WS_VISIBLE+SS_LEFT
@@ -3713,7 +3790,7 @@ section '.rsrc' resource data readable
 
   versioninfo version,VOS__WINDOWS32,VFT_APP,VFT2_UNKNOWN,LANG_ENGLISH+SUBLANG_DEFAULT,0,\
 	      'FileDescription','flat assembler',\
-	      'LegalCopyright',<'Copyright ',0A9h,' 1999-2018 Tomasz Grysztar.'>,\
+	      'LegalCopyright',<'Copyright ',0A9h,' 1999-2021 Tomasz Grysztar.'>,\
 	      'FileVersion',IDE_VERSION_STRING,\
 	      'ProductVersion',VERSION_STRING,\
 	      'OriginalFilename','FASMW.EXE'

@@ -11,6 +11,10 @@ section '.text' code readable executable
 
 	sub	rsp,8
 
+	and	[DDraw],0
+	and	[DDSPrimary],0
+	and	[DDSBack],0
+
 	invoke	GetModuleHandle,NULL
 	mov	[hinstance],rax
 	mov	[wc.hInstance],rax
@@ -167,7 +171,20 @@ startup_error:
 
 end_loop:
 	cominvk DDraw,RestoreDisplayMode
+
+	cmp	[DDSBack],0
+	je	back_surface_released
+	cominvk DDSPrimary,DeleteAttachedSurface,0,DDSBack
+    back_surface_released:
+	cmp	[DDSPrimary],0
+	je	primary_surface_released
+	cominvk DDSPrimary,Release
+    primary_surface_released:
+	cmp	[DDraw],0
+	je	ddraw_released
 	cominvk DDraw,Release
+    ddraw_released:
+
 	invoke	ExitProcess,[msg.wParam]
 
 proc WindowProc uses rbx rsi rdi, hwnd,wmsg,wparam,lparam
@@ -268,8 +285,6 @@ section '.data' data readable writeable
    dq 8000000000000000h,0
 
   limit dq 2.5
-
-tmp db 1
 
 section '.bss' readable writeable
 

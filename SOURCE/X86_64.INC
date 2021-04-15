@@ -1,6 +1,6 @@
 
 ; flat assembler core
-; Copyright (c) 1999-2018, Tomasz Grysztar.
+; Copyright (c) 1999-2021, Tomasz Grysztar.
 ; All rights reserved.
 
 simple_instruction_except64:
@@ -54,6 +54,10 @@ simple_extended_instruction:
 	mov	al,0Fh
 	stos	word [edi]
 	jmp	instruction_assembled
+simple_extended_instruction_f3:
+	mov	byte [edi],0F3h
+	inc	edi
+	jmp	simple_extended_instruction
 prefix_instruction:
 	stos	byte [edi]
 	or	[prefix_flags],1
@@ -224,7 +228,9 @@ basic_instruction:
 	mov	ecx,edx
 	cdq
 	cmp	ecx,edx
-	jne	value_out_of_range
+	je	simm32_range_ok
+	call	recoverable_overflow
+      simm32_range_ok:
 	cmp	[value_type],4
 	jne	get_simm32_ok
 	mov	[value_type],2
@@ -447,13 +453,13 @@ mov_instruction:
 	pop	ecx ebx edx
 	cmp	ah,1
 	je	mov_mem_reg_8bit
+	inc	[base_code]
 	mov	al,ah
 	call	operand_autodetect
 	mov	al,[postbyte_register]
 	or	al,bl
 	or	al,bh
 	jz	mov_mem_ax
-	inc	[base_code]
 	jmp	instruction_ready
       mov_mem_reg_8bit:
 	or	al,bl
@@ -464,14 +470,14 @@ mov_instruction:
 	jnz	mov_mem_address16_al
 	test	ch,44h
 	jnz	mov_mem_address32_al
-	test	ch,88h
-	jnz	mov_mem_address64_al
-	or	ch,ch
+	test	ch,not 88h
 	jnz	invalid_address_size
-	cmp	[code_type],64
-	je	mov_mem_address64_al
-	cmp	[code_type],32
-	je	mov_mem_address32_al
+	call	check_mov_address64
+	cmp	al,0
+	jg	mov_mem_address64_al
+	jl	instruction_ready
+	cmp	[code_type],16
+	jne	mov_mem_address32_al
 	cmp	edx,10000h
 	jb	mov_mem_address16_al
       mov_mem_address32_al:
@@ -495,6 +501,28 @@ mov_instruction:
 	cmp	edx,10000h
 	jge	value_out_of_range
 	jmp	instruction_assembled
+      check_mov_address64:
+	cmp	[code_type],64
+	jne	no_address64
+	test	ch,88h
+	jnz	address64_required
+	mov	eax,[address_high]
+	or	eax,eax
+	jz	no_address64
+	bt	edx,31
+	adc	eax,0
+	jz	address64_simm32
+      address64_required:
+	mov	al,1
+	ret
+      address64_simm32:
+	mov	al,-1
+	ret
+      no_address64:
+	test	ch,08h
+	jnz	invalid_address_size
+	xor	al,al
+	ret
       mov_mem_address64_al:
 	call	store_segment_prefix_if_necessary
 	mov	[base_code],0A2h
@@ -507,14 +535,14 @@ mov_instruction:
 	jnz	mov_mem_address16_ax
 	test	ch,44h
 	jnz	mov_mem_address32_ax
-	test	ch,88h
-	jnz	mov_mem_address64_ax
-	or	ch,ch
+	test	ch,not 88h
 	jnz	invalid_address_size
-	cmp	[code_type],64
-	je	mov_mem_address64_ax
-	cmp	[code_type],32
-	je	mov_mem_address32_ax
+	call	check_mov_address64
+	cmp	al,0
+	jg	mov_mem_address64_ax
+	jl	instruction_ready
+	cmp	[code_type],16
+	jne	mov_mem_address32_ax
 	cmp	edx,10000h
 	jb	mov_mem_address16_ax
       mov_mem_address32_ax:
@@ -671,7 +699,7 @@ mov_instruction:
 	cmp	[operand_size],4
 	jne	invalid_operand_size
 	cmp	[postbyte_register],8
-	jb	mov_reg_creg_store
+	jne	mov_reg_creg_store
 	cmp	[extended_code],20h
 	jne	mov_reg_creg_store
 	mov	al,0F0h
@@ -684,37 +712,37 @@ mov_instruction:
 	jne	invalid_operand_size
 	jmp	nomem_instruction_ready
       mov_reg_mem:
+	add	[base_code],2
 	call	get_address
 	mov	al,[operand_size]
 	cmp	al,1
 	je	mov_reg_mem_8bit
+	inc	[base_code]
 	call	operand_autodetect
 	mov	al,[postbyte_register]
 	or	al,bl
 	or	al,bh
 	jz	mov_ax_mem
-	add	[base_code],3
 	jmp	instruction_ready
       mov_reg_mem_8bit:
 	mov	al,[postbyte_register]
 	or	al,bl
 	or	al,bh
 	jz	mov_al_mem
-	add	[base_code],2
 	jmp	instruction_ready
       mov_al_mem:
 	test	ch,22h
 	jnz	mov_al_mem_address16
 	test	ch,44h
 	jnz	mov_al_mem_address32
-	test	ch,88h
-	jnz	mov_al_mem_address64
-	or	ch,ch
+	test	ch,not 88h
 	jnz	invalid_address_size
-	cmp	[code_type],64
-	je	mov_al_mem_address64
-	cmp	[code_type],32
-	je	mov_al_mem_address32
+	call	check_mov_address64
+	cmp	al,0
+	jg	mov_al_mem_address64
+	jl	instruction_ready
+	cmp	[code_type],16
+	jne	mov_al_mem_address32
 	cmp	edx,10000h
 	jb	mov_al_mem_address16
       mov_al_mem_address32:
@@ -736,14 +764,14 @@ mov_instruction:
 	jnz	mov_ax_mem_address16
 	test	ch,44h
 	jnz	mov_ax_mem_address32
-	test	ch,88h
-	jnz	mov_ax_mem_address64
-	or	ch,ch
+	test	ch,not 88h
 	jnz	invalid_address_size
-	cmp	[code_type],64
-	je	mov_ax_mem_address64
-	cmp	[code_type],32
-	je	mov_ax_mem_address32
+	call	check_mov_address64
+	cmp	al,0
+	jg	mov_ax_mem_address64
+	jl	instruction_ready
+	cmp	[code_type],16
+	jne	mov_ax_mem_address32
 	cmp	edx,10000h
 	jb	mov_ax_mem_address16
       mov_ax_mem_address32:
@@ -899,7 +927,7 @@ mov_instruction:
 	cmp	ah,4
 	jne	invalid_operand_size
 	cmp	[postbyte_register],8
-	jb	mov_creg_store
+	jne	mov_creg_store
 	cmp	[extended_code],22h
 	jne	mov_creg_store
 	mov	al,0F0h
@@ -2188,6 +2216,8 @@ movx_instruction:
 	call	operand_autodetect
 	jmp	instruction_ready
       movx_unknown_size:
+	cmp	al,2
+	je	movx_mem_store
 	call	recoverable_unknown_size
 	jmp	movx_mem_store
       movx_reg:
@@ -2375,6 +2405,18 @@ bs_instruction:
 	mov	bl,al
 	stc
 	ret
+ud_instruction:
+	mov	[extended_code],al
+	mov	[base_code],0Fh
+	call	get_reg_mem
+	jc	ud_reg_reg
+	cmp	[operand_size],4
+	jne	invalid_operand_size
+	jmp	instruction_ready
+      ud_reg_reg:
+	cmp	ah,4
+	jne	invalid_operand_size
+	jmp	nomem_instruction_ready
 
 imul_instruction:
 	mov	[base_code],0F6h
@@ -2987,7 +3029,8 @@ jmp_instruction:
 	cmp	al,'('
 	jne	invalid_operand
 	mov	al,[value_type]
-	push	eax [symbol_identifier]
+	push	eax
+	push	[symbol_identifier]
 	cmp	byte [esi],'.'
 	je	invalid_value
 	mov	al,[operand_size]
@@ -3008,7 +3051,8 @@ jmp_instruction:
 	call	mark_relocation
 	stos	word [edi]
       jmp_far_segment:
-	pop	[symbol_identifier] eax
+	pop	[symbol_identifier]
+	pop	eax
 	mov	[value_type],al
 	pop	eax
 	call	mark_relocation
@@ -3630,6 +3674,14 @@ invlpg_instruction:
 	jne	invalid_operand
 	call	get_address
 	jmp	instruction_ready
+simple_instruction_f2_0f_01:
+	mov	byte [edi],0F2h
+	inc	edi
+	jmp	simple_instruction_0f_01
+simple_instruction_f3_0f_01:
+	mov	byte [edi],0F3h
+	inc	edi
+	jmp	simple_instruction_0f_01
 swapgs_instruction:
 	cmp	[code_type],64
 	jne	illegal_instruction
@@ -3673,8 +3725,8 @@ basic_486_instruction:
 	cmp	al,','
 	jne	invalid_operand
 	call	take_register
-	mov	bl,[postbyte_register]
-	mov	[postbyte_register],al
+	mov	bl,al
+	xchg	bl,[postbyte_register]
 	mov	al,ah
 	cmp	al,1
 	je	basic_486_reg_reg_8bit
@@ -5480,6 +5532,10 @@ clflush_instruction:
 	mov	ah,0AEh
 	mov	cl,1
 	jmp	xsave_common
+cldemote_instruction:
+	mov	ah,1Ch
+	mov	cl,1
+	jmp	xsave_common
 stmxcsr_instruction:
 	mov	ah,0AEh
 	mov	cl,4
@@ -5584,6 +5640,9 @@ movntss_instruction:
 	mov	[postbyte_register],al
 	jmp	instruction_ready
 
+movdiri_instruction:
+	mov	[supplemental_code],al
+	mov	al,38h
 movnti_instruction:
 	mov	[base_code],0Fh
 	mov	[extended_code],al
@@ -5633,6 +5692,9 @@ monitor_instruction:
 	mov	al,[postbyte_register]
 	stos	byte [edi]
 	jmp	instruction_assembled
+pconfig_instruction:
+	mov	[postbyte_register],al
+	jmp	monitor_instruction_store
 movntdqa_instruction:
 	call	setup_66_0f_38
 	lods	byte [esi]
@@ -5843,6 +5905,45 @@ rdpid_instruction:
       rdpid_64bit:
 	cmp	ah,8
 	jne	invalid_operand_size
+	jmp	nomem_instruction_ready
+ptwrite_instruction:
+	mov	[base_code],0Fh
+	mov	[extended_code],0AEh
+	mov	[postbyte_register],al
+	mov	[opcode_prefix],0F3h
+	lods	byte [esi]
+	call	get_size_operator
+	cmp	al,10h
+	je	ptwrite_reg
+      ptwrite_mem:
+	cmp	al,'['
+	jne	invalid_operand
+	call	get_address
+	mov	al,[operand_size]
+	cmp	al,4
+	je	ptwrite_mem_store
+	cmp	al,8
+	je	ptwrite_mem_64bit
+	or	al,al
+	jnz	invalid_operand_size
+	call	recoverable_unknown_size
+	jmp	ptwrite_mem_store
+      ptwrite_mem_64bit:
+	call	operand_64bit
+      ptwrite_mem_store:
+	mov	al,[operand_size]
+	call	operand_autodetect
+	jmp	instruction_ready
+      ptwrite_reg:
+	lods	byte [esi]
+	call	convert_register
+	mov	bl,al
+	mov	al,ah
+	cmp	al,4
+	je	nomem_instruction_ready
+	cmp	al,8
+	jne	invalid_operand_size
+	call	operand_64bit
 	jmp	nomem_instruction_ready
 
 vmclear_instruction:
@@ -6299,7 +6400,8 @@ bndstx_instruction:
 	cmp	al,'('
 	jne	invalid_operand
 	mov	al,[address_sign]
-	push	eax ebx ecx edx [address_symbol]
+	push	eax ebx ecx edx
+	push	[address_symbol]
 	call	get_address_component
 	lods	byte [esi]
 	cmp	al,']'
@@ -6309,7 +6411,8 @@ bndstx_instruction:
 	or	edx,[address_high]
 	jnz	invalid_address
 	mov	[address_register],bh
-	pop	[address_symbol] edx ecx ebx eax
+	pop	[address_symbol]
+	pop	edx ecx ebx eax
 	mov	[address_sign],al
 	or	bl,bl
 	jz	mib_place_index
@@ -6326,6 +6429,176 @@ bndstx_instruction:
 	inc	cl
       bnd_mib_ok:
 	ret
+
+tpause_instruction:
+	mov	[postbyte_register],6
+	mov	[extended_code],0AEh
+	mov	[base_code],0Fh
+	mov	[opcode_prefix],al
+	call	take_register
+	cmp	ah,4
+	jne	invalid_operand_size
+	mov	bl,al
+	cmp	byte [esi],','
+	jne	nomem_instruction_ready
+	inc	esi
+	call	take_register
+	cmp	ax,0402h
+	jne	invalid_operand
+	lods	byte [esi]
+	cmp	al,','
+	jne	invalid_operand
+	call	take_register
+	cmp	ax,0400h
+	jne	invalid_operand
+	jmp	nomem_instruction_ready
+umonitor_instruction:
+	mov	[postbyte_register],6
+	mov	[extended_code],0AEh
+	mov	[base_code],0Fh
+	mov	[opcode_prefix],0F3h
+	call	take_register
+	mov	bl,al
+	mov	al,ah
+	call	operand_autodetect
+	jmp	nomem_instruction_ready
+movdir64b_instruction:
+	call	setup_66_0f_38
+	call	take_register
+	mov	[postbyte_register],al
+	xor	al,al
+	xchg	al,[operand_size]
+	push	eax
+	lods	byte [esi]
+	cmp	al,','
+	jne	invalid_operand
+	lods	byte [esi]
+	call	get_size_operator
+	cmp	al,'['
+	jne	invalid_operand
+	call	get_address
+	mov	al,[operand_size]
+	or	al,al
+	jz	movdir64b_ready
+	cmp	al,64
+	jne	invalid_operand_size
+      movdir64b_ready:
+	push	edi
+	call	store_instruction
+	pop	ebx eax
+	mov	cl,[code_type]
+	cmp	byte [ebx],67h
+	jne	movdir64b_size_check
+	shr	cl,1
+	cmp	cl,16
+	jae	movdir64b_size_check
+	mov	cl,32
+      movdir64b_size_check:
+	shl	al,3
+	cmp	al,cl
+	jne	invalid_operand_size
+	jmp	instruction_assembled
+
+setssbsy_instruction:
+	shl	eax,24
+	or	eax,010FF3h
+	stos	dword [edi]
+	jmp	instruction_assembled
+rstorssp_instruction:
+	mov	ah,1
+	jmp	setup_clrssbsy
+clrssbsy_instruction:
+	mov	ah,0AEh
+      setup_clrssbsy:
+	mov	[base_code],0Fh
+	mov	[extended_code],ah
+	mov	[postbyte_register],al
+	mov	[opcode_prefix],0F3h
+	lods	byte [esi]
+	call	get_size_operator
+	cmp	al,'['
+	jne	invalid_operand
+	call	get_address
+	test	[operand_size],not 8
+	jnz	invalid_operand_size
+	jmp	instruction_ready
+rdsspq_instruction:
+	mov	[rex_prefix],48h
+rdsspd_instruction:
+	mov	ah,1Eh
+	jmp	setup_incssp
+incsspq_instruction:
+	mov	[rex_prefix],48h
+incsspd_instruction:
+	mov	ah,0AEh
+      setup_incssp:
+	mov	[base_code],0Fh
+	mov	[extended_code],ah
+	mov	[postbyte_register],al
+	mov	[opcode_prefix],0F3h
+	lods	byte [esi]
+	call	get_size_operator
+	cmp	al,10h
+	jne	invalid_operand
+	lods	byte [esi]
+	call	convert_register
+	mov	bl,al
+	call	cet_size_check
+	jmp	nomem_instruction_ready
+      cet_size_check:
+	cmp	[rex_prefix],0
+	je	cet_dword
+	cmp	[code_type],64
+	jne	illegal_instruction
+	shr	ah,1
+      cet_dword:
+	cmp	ah,4
+	jne	invalid_operand_size
+	ret
+wrussq_instruction:
+	mov	[opcode_prefix],66h
+wrssq_instruction:
+	mov	[rex_prefix],48h
+	jmp	wrssd_instruction
+wrussd_instruction:
+	mov	[opcode_prefix],66h
+wrssd_instruction:
+	mov	[base_code],0Fh
+	mov	[extended_code],38h
+	mov	[supplemental_code],al
+	lods	byte [esi]
+	call	get_size_operator
+	cmp	al,10h
+	je	wrss_reg
+	cmp	al,'['
+	jne	invalid_operand
+	call	get_address
+	push	edx ebx ecx
+	lods	byte [esi]
+	cmp	al,','
+	jne	invalid_operand
+	call	take_register
+	mov	[postbyte_register],al
+	pop	ecx ebx edx
+	call	cet_size_check
+	jmp	instruction_ready
+      wrss_reg:
+	lods	byte [esi]
+	call	convert_register
+	mov	[postbyte_register],al
+	lods	byte [esi]
+	cmp	al,','
+	jne	invalid_operand
+	call	take_register
+	mov	bl,al
+	xchg	bl,[postbyte_register]
+	call	cet_size_check
+	jmp	nomem_instruction_ready
+endbr_instruction:
+	shl	eax,24
+	or	eax,1E0FF3h
+	stos	dword [edi]
+	jmp	instruction_assembled
 
 take_register:
 	lods	byte [esi]
@@ -6434,6 +6707,8 @@ get_address:
 	mov	edx,eax
 	cmp	[address_size_declared],0
 	jne	address_ok
+	cmp	[segment_register],4
+	ja	address_ok
 	or	bx,bx
 	jnz	clear_address_size
 	cmp	[code_type],64
@@ -7041,9 +7316,9 @@ store_instruction:
 	sub	eax,[current_offset]
 	add	eax,5
 	sub	edx,eax
-	jno	@f
+	jno	address_relative_ok
 	call	recoverable_overflow
-      @@:
+      address_relative_ok:
 	mov	al,101b
 	mov	cl,[postbyte_register]
 	shl	cl,3
