@@ -98,9 +98,9 @@ ends
 
 struct NMTOOLBAR
   hdr	   NMHDR
-  iItem    dd ?
+  iItem    dd ?,?
   tbButton TBBUTTON
-  cchText  dd ?
+  cchText  dd ?,?
   pszText  dq ?
 ends
 
@@ -220,7 +220,7 @@ ends
 
 struct NM_FINDITEM
   hdr	 NMHDR
-  iStart dd ?
+  iStart dd ?,?
   lvfi	 LV_FINDINFO
 ends
 
@@ -231,7 +231,7 @@ ends
 
 struct LV_KEYDOWN
   hdr	NMHDR
-  wVKey dw ?
+  wVKey dw ?,?
   flags dd ?
 ends
 
@@ -245,7 +245,7 @@ struct TV_ITEM
   iImage	 dd ?
   iSelectedImage dd ?
   cChildren	 dd ?
-  lParam	 dd ?
+  lParam	 dd ?,?
 ends
 
 struct TV_INSERTSTRUCT
@@ -268,7 +268,7 @@ ends
 
 struct NM_TREEVIEW
   hdr	  NMHDR
-  action  dd ?
+  action  dd ?,?
   itemOld TV_ITEM
   itemNew TV_ITEM
   ptDrag  POINT
@@ -281,7 +281,7 @@ ends
 
 struct TV_KEYDOWN
   hdr	NMHDR
-  wVKey dw ?
+  wVKey dw ?,?
   flags dd ?
 ends
 
@@ -311,7 +311,7 @@ ends
 
 struct TC_KEYDOWN
   hdr	NMHDR
-  wVKey dw ?
+  wVKey dw ?,?
   flags dd ?
 ends
 

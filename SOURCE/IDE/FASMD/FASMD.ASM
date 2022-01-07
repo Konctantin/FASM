@@ -5716,11 +5716,14 @@ segment main use32
 	xor	eax,eax
 	stosb
 	mov	[progress_offset],eax
-	mov	[source_start],eax
 	mov	[hash_tree],eax
 	mov	[macro_status],al
 	mov	[symbols_file],eax
-	mov	[memory_end],buffer+1000h
+	not	eax
+	mov	[source_start],eax
+	mov	eax,buffer+1000h
+	mov	[memory_end],eax
+	mov	[labels_list],eax
 	mov	[resume_esp],esp
 	mov	[resume_eip],calculator_error
 	call	convert_line

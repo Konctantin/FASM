@@ -3071,12 +3071,14 @@ proc CalculatorDialog hwnd,msg,wparam,lparam
 	xor	eax,eax
 	stosb
 	mov	[hthread],eax
-	mov	[source_start],eax
 	mov	[hash_tree],eax
 	mov	[macro_status],al
 	mov	[symbols_file],eax
+	not	eax
+	mov	[source_start],eax
 	lea	eax,[esi+1000h]
 	mov	[memory_end],eax
+	mov	[labels_list],eax
 	mov	eax,esp
 	and	eax,not 0FFFh
 	sub	eax,1000h
@@ -3093,7 +3095,7 @@ proc CalculatorDialog hwnd,msg,wparam,lparam
 	stosb
 	pop	esi
 	mov	[error_line],0
-	mov	[current_line],-1
+	or	[current_line],-1
 	mov	[value_size],0
 	call	calculate_expression
 	cmp	[error_line],0
