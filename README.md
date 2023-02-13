@@ -1,7 +1,7 @@
 
 Visit http://flatassembler.net/ for more information.
 ==
-## Flat assembler 1.73.27 for Windows
+## Flat assembler 1.73.30 for Windows
 
 The flat assembler (abbreviated to fasm, intentionally stylized with lowercase letters) is a fast assembler running in a variety of operating systems, in continued development since 1999.
 It was designed primarily for the assembly of x86 instructions and it supports x86 and x86-64 instructions sets with extensions like MMX, 3DNow!, SSE up to SSE4, AVX, AVX2, XOP, and AVX-512.

@@ -1,6 +1,6 @@
 
 ; flat assembler IDE for DOS/DPMI
-; Copyright (c) 1999-2021, Tomasz Grysztar.
+; Copyright (c) 1999-2022, Tomasz Grysztar.
 ; All rights reserved.
 
 	format	MZ
@@ -6484,7 +6484,7 @@ segment main use32
 ; String constants
 
   _caption db 'flat assembler ',VERSION_STRING,0
-  _copyright db 'Copyright (c) 1999-2021, Tomasz Grysztar',0
+  _copyright db 'Copyright (c) 1999-2022, Tomasz Grysztar',0
 
   _null db 0
   _untitled db 'Untitled',0

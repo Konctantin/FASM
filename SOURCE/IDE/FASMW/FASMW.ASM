@@ -1,6 +1,6 @@
 
 ; flat assembler IDE for Win32
-; Copyright (c) 1999-2021, Tomasz Grysztar.
+; Copyright (c) 1999-2022, Tomasz Grysztar.
 ; All rights reserved.
 
 format PE GUI 4.0 large NX
@@ -3778,7 +3778,7 @@ section '.rsrc' resource data readable
   enddialog
 
   dialog about_dialog,'About',40,40,172,60,WS_CAPTION+WS_POPUP+WS_SYSMENU+DS_MODALFRAME
-    dialogitem 'STATIC',<'flat assembler ',2014h,' version ',VERSION_STRING,0Dh,0Ah,'Copyright ',0A9h,' 1999-2021 Tomasz Grysztar.'>,-1,27,10,144,40,WS_VISIBLE+SS_CENTER
+    dialogitem 'STATIC',<'flat assembler ',2014h,' version ',VERSION_STRING,0Dh,0Ah,'Copyright ',0A9h,' 1999-2022 Tomasz Grysztar.'>,-1,27,10,144,40,WS_VISIBLE+SS_CENTER
     dialogitem 'STATIC',IDI_MAIN,-1,8,8,32,32,WS_VISIBLE+SS_ICON
     dialogitem 'STATIC','',-1,4,34,164,11,WS_VISIBLE+SS_ETCHEDHORZ
     dialogitem 'STATIC',<'flat editor version ',FEDIT_VERSION_STRING>,-1,4,38,100,20,WS_VISIBLE+SS_LEFT
@@ -3792,7 +3792,7 @@ section '.rsrc' resource data readable
 
   versioninfo version,VOS__WINDOWS32,VFT_APP,VFT2_UNKNOWN,LANG_ENGLISH+SUBLANG_DEFAULT,0,\
 	      'FileDescription','flat assembler',\
-	      'LegalCopyright',<'Copyright ',0A9h,' 1999-2021 Tomasz Grysztar.'>,\
+	      'LegalCopyright',<'Copyright ',0A9h,' 1999-2022 Tomasz Grysztar.'>,\
 	      'FileVersion',IDE_VERSION_STRING,\
 	      'ProductVersion',VERSION_STRING,\
 	      'OriginalFilename','FASMW.EXE'
