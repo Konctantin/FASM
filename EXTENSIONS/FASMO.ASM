@@ -3,15 +3,22 @@
 ; Copyright (c) 1999-2015, Tomasz Grysztar.
 ; All rights reserved.
 
-format PE DLL GUI 4.0
-entry DLLEntryPoint
+format MS COFF
 
-include '..\..\INCLUDE\win32a.inc'
+extrn '__imp__CreateFileA@28'		  as CreateFile : dword
+extrn '__imp__ReadFile@20'		  as ReadFile : dword
+extrn '__imp__SetFilePointer@16'	  as SetFilePointer : dword
+extrn '__imp__CloseHandle@4'		  as CloseHandle : dword
+extrn '__imp__WriteFile@20'		  as WriteFile : dword
+extrn '__imp__GetSystemTime@4'		  as GetSystemTime : dword
+extrn '__imp__GetEnvironmentVariableA@12' as GetEnvironmentVariable : dword
+
+include 'INCLUDE\win32a.inc'
 include 'fasm.ash'
 
 section '.data' data readable writeable
 
-include '..\variable.inc'
+include 'variable.inc'
 
 state dd ?
 esp_save dd ?
@@ -30,15 +37,13 @@ buffer rb 1000h
 
 section '.text' code readable executable
 
-DLLEntryPoint:
-	mov	eax,TRUE
-	ret	12
-
-fasm_GetVersion:
+public _fasm_GetVersion
+_fasm_GetVersion:
 	mov	eax,VERSION_MAJOR + VERSION_MINOR shl 16
 	ret
 
-fasm_AssembleFile:
+public _fasm_AssembleFile
+_fasm_AssembleFile:
 
 	mov	eax,[lpSource]
 	mov	[input_file],eax
@@ -46,7 +51,8 @@ fasm_AssembleFile:
 
 	jmp	setup_assembler
 
-fasm_Assemble:
+public _fasm_Assemble
+_fasm_Assemble:
 
   virtual at esp+4
     lpSource dd ?
@@ -116,7 +122,7 @@ fasm_Assemble:
   done:
 	mov	eax,[ebx+FASM_STATE.condition]
 	pop	edi esi ebx ebp
-	ret	20
+	ret
 
   general_error:
 	mov	esp,[esp_save]
@@ -414,45 +420,16 @@ dump_symbols:
 
 include 'errors.inc'
 
-include '..\preproce.inc'
-include '..\parser.inc'
-include '..\exprpars.inc'
-include '..\exprcalc.inc'
-include '..\assemble.inc'
-include '..\formats.inc'
-include '..\x86_64.inc'
-include '..\avx.inc'
-include '..\tables.inc'
+include 'preproce.inc'
+include 'parser.inc'
+include 'exprpars.inc'
+include 'exprcalc.inc'
+include 'assemble.inc'
+include 'formats.inc'
+include 'x86_64.inc'
+include 'avx.inc'
+include 'tables.inc'
 
-include '..\version.inc'
+include 'version.inc'
 
 null_byte db 0
-
-section '.idata' import data readable writeable
-
-  library kernel32,'KERNEL32.DLL'
-
-  include '..\..\INCLUDE\api\kernel32.inc'
-
-section '.edata' export data readable
-
-  export 'FASM.DLL',\
-	 fasm_GetVersion,'fasm_GetVersion',\
-	 fasm_Assemble,'fasm_Assemble',\
-	 fasm_AssembleFile,'fasm_AssembleFile'
-
-section '.reloc' fixups data readable discardable
-
-section '.rsrc' resource data readable
-
-  directory RT_VERSION,versions
-
-  resource versions,\
-	   1,LANG_NEUTRAL,version
-
-  versioninfo version,VOS__WINDOWS32,VFT_APP,VFT2_UNKNOWN,LANG_ENGLISH+SUBLANG_DEFAULT,0,\
-	      'FileDescription','flat assembler',\
-	      'LegalCopyright',<'Copyright ',0A9h,' 2001-2015 Tomasz Grysztar.'>,\
-	      'FileVersion',VERSION_STRING,\
-	      'ProductVersion',VERSION_STRING,\
-	      'OriginalFilename','FASM.DLL'
